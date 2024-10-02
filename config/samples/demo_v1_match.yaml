@@ -1,0 +1,9 @@
+apiVersion: demo.my.domain/v1
+kind: Match
+metadata:
+  labels:
+    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/managed-by: kustomize
+  name: match-sample
+spec:
+  # TODO(user): Add fields here

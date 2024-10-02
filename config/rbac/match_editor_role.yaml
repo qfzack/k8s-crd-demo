@@ -1,0 +1,27 @@
+# permissions for end users to edit matches.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/managed-by: kustomize
+  name: match-editor-role
+rules:
+- apiGroups:
+  - demo.my.domain
+  resources:
+  - matches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - demo.my.domain
+  resources:
+  - matches/status
+  verbs:
+  - get

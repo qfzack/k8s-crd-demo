@@ -1,0 +1,23 @@
+# permissions for end users to view matches.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/managed-by: kustomize
+  name: match-viewer-role
+rules:
+- apiGroups:
+  - demo.my.domain
+  resources:
+  - matches
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - demo.my.domain
+  resources:
+  - matches/status
+  verbs:
+  - get
