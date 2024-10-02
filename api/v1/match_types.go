@@ -28,8 +28,11 @@ type MatchSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Match. Edit match_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Datetime      string `json:"datetime"`
+	HomeTeam      string `json:"homeTeam"`
+	HomeTeamGoals int    `json:"homeTeamGoals"`
+	AwayTeam      string `json:"awayTeam"`
+	AwayTeamGoals int    `json:"awayTeamGoals"`
 }
 
 // MatchStatus defines the observed state of Match
