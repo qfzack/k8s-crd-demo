@@ -1,0 +1,9 @@
+apiVersion: databases.qfzack.com/v1
+kind: Redis
+metadata:
+  labels:
+    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/managed-by: kustomize
+  name: redis-sample
+spec:
+  # TODO(user): Add fields here

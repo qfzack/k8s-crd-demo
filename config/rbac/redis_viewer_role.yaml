@@ -1,0 +1,23 @@
+# permissions for end users to view redis.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/managed-by: kustomize
+  name: redis-viewer-role
+rules:
+- apiGroups:
+  - databases.qfzack.com
+  resources:
+  - redis
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - databases.qfzack.com
+  resources:
+  - redis/status
+  verbs:
+  - get
