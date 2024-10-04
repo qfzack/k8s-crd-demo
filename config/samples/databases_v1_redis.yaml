@@ -4,6 +4,8 @@ metadata:
   labels:
     app.kubernetes.io/name: k8s-crd-demo
     app.kubernetes.io/managed-by: kustomize
-  name: redis-sample
+  name: redis-instance
 spec:
-  # TODO(user): Add fields here
+  name: redis-instance-0
+  port: 6379
+  replicas: 3

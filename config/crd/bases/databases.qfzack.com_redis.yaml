@@ -42,6 +42,8 @@ spec:
               name:
                 type: string
               port:
+                maximum: 6380
+                minimum: 6000
                 type: integer
               replicas:
                 type: integer

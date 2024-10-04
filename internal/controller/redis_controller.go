@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +51,14 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
+
+	redis := &databasesv1.Redis{}
+	fmt.Println("request namespace name: ", req.NamespacedName)
+	if err := r.Get(ctx, req.NamespacedName, redis); err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("catched redis object: ", redis.Spec)
+	}
 
 	return ctrl.Result{}, nil
 }

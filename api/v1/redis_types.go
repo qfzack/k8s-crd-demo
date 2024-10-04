@@ -28,9 +28,11 @@ type RedisSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Name     string `json:"name,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Replicas int    `json:"replicas,omitempty"`
+	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:Minimum:=6000
+	//+kubebuilder:validation:Maximum:=6380
+	Port     int `json:"port,omitempty"`
+	Replicas int `json:"replicas,omitempty"`
 }
 
 // RedisStatus defines the observed state of Redis
