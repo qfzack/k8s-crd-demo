@@ -6,6 +6,6 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: redis-instance
 spec:
-  name: redis-instance-0
+  name: redis-server
   port: 6379
   replicas: 3

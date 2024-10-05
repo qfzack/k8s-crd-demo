@@ -20,18 +20,29 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	databasesv1 "github.com/qfzack/redis-operator/api/v1"
+	"github.com/qfzack/redis-operator/internal/helper"
 )
 
 // RedisReconciler reconciles a Redis object
 type RedisReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	EventRecord record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=databases.qfzack.com,resources=redis,verbs=get;list;watch;create;update;patch;delete
@@ -50,22 +61,112 @@ type RedisReconciler struct {
 func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
-
-	redis := &databasesv1.Redis{}
+	redisConfig := &databasesv1.Redis{}
 	fmt.Println("request namespace name: ", req.NamespacedName)
-	if err := r.Get(ctx, req.NamespacedName, redis); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, redisConfig); err != nil {
 		fmt.Println(err)
-	} else {
-		fmt.Println("catched redis object: ", redis.Spec)
+		return ctrl.Result{}, err
+	}
+
+	if !redisConfig.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, r.clearRedis(ctx, redisConfig)
+	}
+	fmt.Println("catched redis object: ", redisConfig.Spec)
+	podNames := helper.GetRedisPodNames(redisConfig)
+	isEdit := false
+	for _, podName := range podNames {
+		name, err := helper.CreateRedisPod(r.Client, redisConfig, podName, r.Scheme)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if name == "" {
+			continue
+		}
+		if controllerutil.ContainsFinalizer(redisConfig, name) {
+			continue
+		}
+		redisConfig.Finalizers = append(redisConfig.Finalizers, podName)
+		isEdit = true
+	}
+
+	if len(redisConfig.Finalizers) > len(podNames) {
+		r.EventRecord.Event(redisConfig, corev1.EventTypeNormal, "Upgrade", "Reduce redis pod")
+		isEdit = true
+		err := r.rmIfSurplus(ctx, podNames, redisConfig)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if isEdit {
+		r.EventRecord.Event(redisConfig, corev1.EventTypeNormal, "Updated", "Update redis pod")
+		err := r.Client.Update(ctx, redisConfig)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		// redisConfig.Status.RedisNum = len(redisConfig.Finalizers)
+		err = r.Status().Update(ctx, redisConfig)
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *RedisReconciler) rmIfSurplus(ctx context.Context, podNames []string, redisConfig *databasesv1.Redis) error {
+	for i := 0; i < len(redisConfig.Finalizers)-len(podNames); i++ {
+		err := r.Client.Delete(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      redisConfig.Finalizers[len(podNames)+i],
+				Namespace: redisConfig.Namespace,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	redisConfig.Finalizers = podNames
+	return nil
+}
+
+func (r *RedisReconciler) clearRedis(ctx context.Context, redisConfig *databasesv1.Redis) error {
+	podList := redisConfig.Finalizers
+	for _, podName := range podList {
+		err := r.Client.Delete(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: redisConfig.Namespace,
+			},
+		})
+
+		if err != nil {
+			fmt.Println("fail to delete redis pod: ", err)
+		}
+	}
+
+	redisConfig.Finalizers = []string{}
+	return r.Client.Update(ctx, redisConfig)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasesv1.Redis{}).
+		Watches(&corev1.Pod{}, handler.Funcs{DeleteFunc: r.podDeleteHandler}).
 		Complete(r)
+}
+
+func (r *RedisReconciler) podDeleteHandler(ctx context.Context, event event.TypedDeleteEvent[client.Object], limitInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	fmt.Println("deleted object name: ", event.Object.GetName())
+
+	for _, ref := range event.Object.GetOwnerReferences() {
+		if ref.Kind == "Redis" && ref.APIVersion == "databases.qfzack.com/v1" {
+			limitInterface.Add(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      ref.Name,
+					Namespace: event.Object.GetNamespace(),
+				},
+			})
+		}
+	}
 }
