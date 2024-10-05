@@ -12,20 +12,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// Get pod names
+// Get Redis pod name list from CRD instance configuration
 func GetRedisPodNames(redisConfig *v1.Redis) []string {
 	podNames := make([]string, redisConfig.Spec.Replicas)
-	fmt.Printf("%+v", redisConfig)
-
 	for i := 0; i < redisConfig.Spec.Replicas; i++ {
 		podNames[i] = fmt.Sprintf("%s-%d", redisConfig.Name, i)
 	}
-	fmt.Println("Podnames: ", podNames)
+
 	return podNames
 }
 
-// Judge the pod exist
-func IsExistPod(podName string, redisConfig *v1.Redis, client client.Client) bool {
+// Judge whether the pod exists in k8s cluster
+func IsPodExist(client client.Client, podName string, redisConfig *v1.Redis) bool {
 	err := client.Get(context.Background(), types.NamespacedName{
 		Namespace: redisConfig.Namespace,
 		Name:      podName,
@@ -44,7 +42,7 @@ func IsExistInFinalizers(podName string, redis *v1.Redis) bool {
 }
 
 func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string, scheme *runtime.Scheme) (string, error) {
-	if IsExistPod(podName, redisConfig, client) {
+	if IsPodExist(client, podName, redisConfig) {
 		return "", nil
 	}
 
