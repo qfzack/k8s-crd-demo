@@ -1,8 +1,10 @@
 # k8s-crd-demo
-// TODO(user): Add simple overview of use/purpose
+Kubernetes CRD practice project built with [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder), and the project build steps are documented in [kubebuilder_tuition](./docs/kubebuilder_tuition.md).
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+This project can be deployed to k8s as an redis operator with the main features:
+- Create highly available redis clusters
+- Scaling the number of replicas
 
 ## Getting Started
 
