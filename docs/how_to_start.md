@@ -45,7 +45,15 @@ Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/e72
 - `api/vi/<kind-name>_types.go` is to define custom CRD fields.
 - `internal/controller/<kind-name>_controller.go` is to implement Kubernetes API for **custom resource (CR)** management.
 
-**5.Apply CRD to Kubernetes cluster**
+**5.Generate CRD configuration**
+
+Generate CRD configurations from code.
+
+```shell
+make manifests
+```
+
+**6.Apply CRD to Kubernetes cluster**
 
 > Kubebuilder also generate a **Makefile** that contains common operations for CRD, such as: CRD updates, operator service startup, etc.
 
@@ -55,17 +63,17 @@ make install
 
 It will generate the CRD yaml file in directory `config/crd/bases` and apply it to Kubernetes cluster.
 
-**6.Create Custom Resource**
+**7.Create Custom Resource**
 
 After CRD appled to Kubernetes cluster, it is equivalent defined a new resource (source name specified with --kind <kind-name>), and then we are abled to creat this kind custom resource.
 
 [databases_v1_redis.yaml](../config/samples/databases_v1_redis.yaml) is an example could be used to deployed in Kubernetes cluster with:
 
 ```shell
-kubectl apply -f databases_v1_redis.yaml
+kubectl apply -f ./config/samples/databases_v1_redis.yaml
 ```
 
-**7.Run Operator for CRD monitoring**
+**8.Run Operator for CRD monitoring**
 
 After we created CR in Kubernetes cluster, it is just created a resource instance (like deployment in K8s) but not create pod.
 

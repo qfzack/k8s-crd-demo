@@ -49,16 +49,25 @@ func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string,
 	newPod := &corev1.Pod{}
 	newPod.Name = podName
 	newPod.Namespace = redisConfig.Namespace
+
+	envVars := []corev1.EnvVar{}
+	if redisConfig.Spec.Password != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "REDIS_PASSWORD",
+			Value: redisConfig.Spec.Password,
+		})
+	}
 	newPod.Spec.Containers = []corev1.Container{
 		{
 			Name:            podName,
-			Image:           "redis:5-alpine",
+			Image:           redisConfig.Spec.Image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Ports: []corev1.ContainerPort{
 				{
 					ContainerPort: int32(redisConfig.Spec.Port),
 				},
 			},
+			Env: envVars,
 		},
 	}
 
