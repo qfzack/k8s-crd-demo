@@ -72,6 +72,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// Clear all Redis pods if CRD instance was deleted
 	if !redisConfig.DeletionTimestamp.IsZero() {
+		r.Logger.Info("CRD instance have been deleted, will clean up all resource")
 		return ctrl.Result{}, r.clearRedisPod(ctx, redisConfig)
 	}
 
@@ -83,15 +84,15 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	for _, podName := range podNames {
 		name, err := helper.CreateRedisPod(r.Client, redisConfig, podName, r.Scheme)
 		if err != nil {
-			r.Logger.Errorf("Fail to create pod %s: %v", podName, err)
+			r.Logger.Errorf("Fail to create pod %s: %v in namespace %s", podName, err, redisConfig.Namespace)
 			return ctrl.Result{}, err
 		}
 		// Pod exist or fail to create pod
 		if name == "" || controllerutil.ContainsFinalizer(redisConfig, name) {
-			r.Logger.Info("Redis pod existed: ", podName)
+			r.Logger.Infof("Redis pod %s existed in namespace %s", podName, redisConfig.Namespace)
 			continue
 		}
-		r.Logger.Info("Created redis pod: ", podName)
+		r.Logger.Infof("Created redis pod %s in namespace %s", podName, redisConfig.Namespace)
 		redisConfig.Finalizers = append(redisConfig.Finalizers, podName)
 		isEdit = true
 	}
@@ -100,7 +101,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if len(redisConfig.Finalizers) > len(podNames) {
 		isEdit = true
 		r.EventRecord.Event(redisConfig, corev1.EventTypeNormal, "Scaled", "Reduce redis pod")
-		r.Logger.Infof("Reduce redis pod num from %d to %d", len(redisConfig.Finalizers), len(podNames))
+		r.Logger.Infof("Reduce redis pod num from %d to %d in namespace %s", len(redisConfig.Finalizers), len(podNames), redisConfig.Namespace)
 		err := r.deleteRedisPod(ctx, podNames, redisConfig)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -161,7 +162,7 @@ func (r *RedisReconciler) deleteRedisPod(ctx context.Context, podNames []string,
 func (r *RedisReconciler) clearRedisPod(ctx context.Context, redisConfig *databasesv1.Redis) error {
 	podList := redisConfig.Finalizers
 	for _, podName := range podList {
-		r.Logger.Info("Delete redis pod: ", podName)
+		r.Logger.Infof("Delete redis pod %s in namespace %s", podName, redisConfig.Namespace)
 		err := r.Client.Delete(ctx, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      podName,
@@ -189,7 +190,7 @@ func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RedisReconciler) podDeleteHandler(ctx context.Context, event event.TypedDeleteEvent[client.Object], limitInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	r.Logger.Info("Deleted redis pod: ", event.Object.GetName())
+	r.Logger.Infof("Deleted redis pod %s", event.Object.GetName())
 
 	for _, ref := range event.Object.GetOwnerReferences() {
 		if ref.Kind == "Redis" && ref.APIVersion == "databases.qfzack.com/v1" {
