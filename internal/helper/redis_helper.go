@@ -3,6 +3,7 @@ package helper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	v1 "github.com/qfzack/redis-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,21 +16,11 @@ import (
 // Get Redis pod name list from CRD instance configuration
 func GetRedisPodNames(redisConfig *v1.Redis) []string {
 	podNames := make([]string, redisConfig.Spec.Replicas)
-	for i := 0; i < redisConfig.Spec.Replicas; i++ {
+	for i := range redisConfig.Spec.Replicas {
 		podNames[i] = fmt.Sprintf("%s-%d", redisConfig.Name, i)
 	}
 
 	return podNames
-}
-
-// Judge whether the pod exists in k8s cluster
-func IsPodExist(client client.Client, podName string, redisConfig *v1.Redis) bool {
-	err := client.Get(context.Background(), types.NamespacedName{
-		Namespace: redisConfig.Namespace,
-		Name:      podName,
-	}, &corev1.Pod{})
-
-	return err == nil
 }
 
 func IsExistInFinalizers(podName string, redis *v1.Redis) bool {
@@ -38,18 +29,31 @@ func IsExistInFinalizers(podName string, redis *v1.Redis) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
-func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string, scheme *runtime.Scheme) (string, error) {
-	if IsPodExist(client, podName, redisConfig) {
+// Judge whether the pod exists in k8s cluster
+func IsPodExist(client client.Client, redisConfig *v1.Redis, podName string) bool {
+	err := client.Get(context.Background(), types.NamespacedName{
+		Namespace: redisConfig.Namespace,
+		Name:      podName,
+	}, &corev1.Pod{})
+
+	return err == nil
+}
+
+func CreateRedisPod(client client.Client, scheme *runtime.Scheme, redisConfig *v1.Redis, podName string) (string, error) {
+	if IsPodExist(client, redisConfig, podName) {
 		return "", nil
 	}
 
+	// Create pod configuration for pod creation
 	newPod := &corev1.Pod{}
 	newPod.Name = podName
 	newPod.Namespace = redisConfig.Namespace
 
+	// Pod enviroment variables
 	envVars := []corev1.EnvVar{}
 	if redisConfig.Spec.Password != "" {
 		envVars = append(envVars, corev1.EnvVar{
@@ -57,6 +61,8 @@ func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string,
 			Value: redisConfig.Spec.Password,
 		})
 	}
+
+	// Pod container configuration
 	newPod.Spec.Containers = []corev1.Container{
 		{
 			Name:            podName,
@@ -71,6 +77,7 @@ func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string,
 		},
 	}
 
+	// Create reference for newPod resource, set CRD redisConfig to the controller of newPod
 	err := controllerutil.SetControllerReference(redisConfig, newPod, scheme)
 	if err != nil {
 		return "", err
@@ -78,4 +85,14 @@ func CreateRedisPod(client client.Client, redisConfig *v1.Redis, podName string,
 
 	err = client.Create(context.Background(), newPod)
 	return podName, err
+}
+
+func FinalizerName(redisConfig *v1.Redis, podName string) string {
+	domain := strings.Split(redisConfig.APIVersion, "/")[0]
+	return fmt.Sprintf("%s/%s", domain, podName)
+}
+
+func ParseFinalizer(finalizer string) string {
+	parts := strings.Split(finalizer, "/")
+	return parts[len(parts)-1]
 }
