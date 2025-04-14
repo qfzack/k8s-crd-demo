@@ -20,7 +20,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +44,7 @@ type RedisReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	EventRecord record.EventRecorder
-	Logger      *logrus.Logger
+	Logger      logr.Logger
 }
 
 // +kubebuilder:rbac:groups=databases.qfzack.com,resources=redis,verbs=get;list;watch;create;update;patch;delete
@@ -61,13 +61,13 @@ type RedisReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.0/pkg/reconcile
 func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	r.Logger = log.FromContext(ctx)
 	redisConfig := &databasesv1.Redis{}
 
 	// 1.Try to get existed Redis CRD instance from k8s cluster
-	r.Logger.Infof("Try to fetch CRD instance with NamespacedName %+v", req.NamespacedName)
+	r.Logger.Info("Fetch CRD instance", "Name", req.NamespacedName.Name)
 	if err := r.Get(ctx, req.NamespacedName, redisConfig); err != nil {
-		r.Logger.Errorf("Failed to fetch CRD instance:  %v", err)
+		r.Logger.Error(err, "Failed to fetch CRD instance")
 		return ctrl.Result{}, err
 	}
 
@@ -80,7 +80,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// 3.Replica num control
 	// Get pod name list with format {Spec.Name}-{serial_number} in Spec configuration
-	r.Logger.Infof("The CRD instance spec configuration: %+v", redisConfig.Spec)
+	r.Logger.Info("CRD instance spec configuration", "spec", redisConfig.Spec)
 	podNames := helper.GetRedisPodNames(redisConfig)
 
 	// Scale up
@@ -89,15 +89,15 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	for _, podName := range podNames {
 		name, err := helper.CreateRedisPod(r.Client, r.Scheme, redisConfig, podName)
 		if err != nil {
-			r.Logger.Errorf("Fail to create pod %s in namespace %s: %v", podName, redisConfig.Namespace, err)
+			r.Logger.Error(err, "Fail to create pod", "pod", podName)
 			return ctrl.Result{}, err
 		}
 		// Pod exist or fail to create pod
 		if name == "" || controllerutil.ContainsFinalizer(redisConfig, name) {
-			r.Logger.Infof("Redis pod %s existed in namespace %s", podName, redisConfig.Namespace)
+			r.Logger.Info("Redis pod existed", "pod", podName)
 			continue
 		}
-		r.Logger.Infof("Created redis pod %s in namespace %s", podName, redisConfig.Namespace)
+		r.Logger.Info("Created redis pod", "pod", podName)
 		redisConfig.Finalizers = append(redisConfig.Finalizers, helper.FinalizerName(redisConfig, podName))
 		updated = true
 	}
@@ -107,7 +107,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if len(redisConfig.Finalizers) > len(podNames) {
 		updated = true
 		r.EventRecord.Event(redisConfig, corev1.EventTypeNormal, "Scaled", "Reduce redis pod")
-		r.Logger.Infof("Reduce redis pod num from %d to %d in namespace %s", len(redisConfig.Finalizers), len(podNames), redisConfig.Namespace)
+		r.Logger.Info("Reduce redis pod nums", "current", len(redisConfig.Finalizers), "target", len(podNames))
 		err := r.deleteRedisPod(ctx, podNames, redisConfig)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -129,7 +129,6 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.initLogger()
 	r.EventRecord = mgr.GetEventRecorderFor("RedisController")
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -138,17 +137,8 @@ func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *RedisReconciler) initLogger() {
-	r.Logger = logrus.New()
-	r.Logger.SetLevel(logrus.DebugLevel)
-	r.Logger.SetFormatter(&logrus.TextFormatter{
-		TimestampFormat: "2006-01-02 15:04:05",
-		FullTimestamp:   true,
-	})
-}
-
 func (r *RedisReconciler) podDeleteHandler(ctx context.Context, event event.TypedDeleteEvent[client.Object], limitInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	r.Logger.Infof("Deleted redis pod %s", event.Object.GetName())
+	r.Logger.Info("Deleted redis pod", "pod", event.Object.GetName())
 
 	for _, ref := range event.Object.GetOwnerReferences() {
 		if ref.Kind == "Redis" && ref.APIVersion == "databases.qfzack.com/v1" {
@@ -193,7 +183,7 @@ func (r *RedisReconciler) cleanUpResources(ctx context.Context, redisConfig *dat
 	for _, finalizer := range finalizers {
 		finalizerPod := helper.ParseFinalizer(finalizer)
 
-		r.Logger.Infof("Delete redis pod %s in namespace %s", finalizerPod, redisConfig.Namespace)
+		r.Logger.Info("Delete redis pod", "pod", finalizerPod)
 		err := r.Client.Delete(ctx, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      finalizerPod,
@@ -201,7 +191,7 @@ func (r *RedisReconciler) cleanUpResources(ctx context.Context, redisConfig *dat
 			},
 		})
 		if err != nil {
-			r.Logger.Error("Fail to delete redis pod: ", finalizerPod)
+			r.Logger.Error(err, "Fail to delete redis pod: ", "pod", finalizerPod)
 		}
 	}
 

@@ -1,6 +1,27 @@
 # Architecture
 
-## Operator Design
+## 1.Github Project Reference
+
+Some github repositories established with Kubebuilder.
+
+1. [redis-operator](https://github.com/OT-CONTAINER-KIT/redis-operator)
+2. [mongodb-kubernetes-operator](https://github.com/mongodb/mongodb-kubernetes-operator)
+
+## 2.Redis Image
+
+bitnami/redis is a Redis image provided and maintained by [Bitnami Library](https://github.com/bitnami/charts), with improvements in configurability, security, and automated deployment. It is suitable for production environments and Kubernetes deployments.
+
+| Scenario | Bitnami Helm Chart | Redis Operator |
+|---------|---------|---------|
+| Automatic Failure Recovery | Requires Sentinel | CRD Support |
+| Auto Scaling | :x: | CRD Support |
+| Sharding | :x: | CRD Support |
+| GitOps Automation | :x: | Supported |
+| Multi-Instance Management | :x: | Supported |
+| Auto Backup/Recovery | :x: | CRD Support |
+| State Awareness | :x: | CRD Support |
+
+## 3.Operator Design
 
 ### CRD Definition
 

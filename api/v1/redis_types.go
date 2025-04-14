@@ -20,28 +20,121 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// SecuritySpec defines the security configuration
+type SecuritySpec struct {
+	// TLS configuration
+	EnableTLS bool `json:"enableTLS,omitempty"`
+	// ServiceAccount name
+	ServiceAccount string `json:"serviceAccount,omitempty"`
+}
+
+// BackupSpec defines the Redis data backup configuration
+type BackupSpec struct {
+	// Enable automatic backup
+	Enabled bool `json:"enabled,omitempty"`
+	// Automatic backup schedule
+	Schedule string `json:"schedule,omitempty"`
+	// Retention policy for retain backup data
+	RetentionPolicy string `json:"retentionPolicy,omitempty"`
+}
+
+// MonitorSpec defines the monitoring configuration
+type MonitorSpec struct {
+	// Enable Promutheus monitoring
+	Enabled bool `json:"enabled,omitempty"`
+	// Prometheus service port
+	Port int32 `json:"port,omitempty"`
+}
+
+// ResourceSpec describes compute resource requirements
+type ResourceSpec struct {
+	// Limits describes the maximum compute resources allowed
+	Limits ResourceList `json:"limits,omitempty"`
+	// Requests describes the minimum compute resources required
+	Requests ResourceList `json:"requests,omitempty"`
+}
+
+// ResourceList is a set of resource pairs.
+type ResourceList struct {
+	CPU    string `json:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty"`
+}
+
+// StorageSpec defines the storage configuration
+type StorageSpec struct {
+	// Storage defines the size of persistance volumn
+	Storage string `json:"storage,omitempty"`
+	// StorageClassName of persistance volumn
+	StorageClassName string `json:"storageClassName,omitempty"`
+}
 
 // RedisSpec defines the desired state of Redis
 type RedisSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	Name  string `json:"name,omitempty"`
+	// Name is the part of pod name
+	// +required
+	Name string `json:"name,omitempty"`
+	// Image define the used docker image
+	// +required
 	Image string `json:"image,omitempty"`
-	//+kubebuilder:validation:Minimum:=6000
-	//+kubebuilder:validation:Maximum:=6380
-	Port               int    `json:"port,omitempty"`
-	Replicas           int    `json:"replicas,omitempty"`
-	Password           string `json:"password,omitempty"`
-	AllowEmptyPassword bool   `json:"allowemptypassword,omitempty"`
+	// Replicas define the number of replicas
+	Replicas int32 `json:"replicas,omitempty"`
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	Port int32 `json:"port,omitempty"`
+	// Password is the password for Redis
+	Password string `json:"password,omitempty"`
+	// AllowEmptyPassword allows empty password
+	AllowEmptyPassword bool `json:"allowEmptyPassword,omitempty"`
+
+	// Mode represents the mode of Redis (standalone, sentinel, cluster)
+	// +kubebuilder:validation:Enum=standalone;sentinel;cluster
+	Mode string `json:"mode,omitempty"`
+
+	// Resource defines compute resource requirement
+	Resource ResourceSpec `json:"resource,omitempty"`
+
+	// Storage confiuration for Redis pods
+	Storage StorageSpec `json:"storage,omitempty"`
+
+	// Redis configuration options
+	Config map[string]string `json:"config,omitempty"`
+
+	// Monitoring configuration
+	Monitor MonitorSpec `json:"monitor,omitempty"`
+
+	// Backup configuration
+	Backup BackupSpec `json:"backup,omitempty"`
+
+	Security SecuritySpec `json:"security,omitempty"`
+
+	// TODO: Add other spec fields
+	// User []RedisUser `json:"user,omitempty"`
 }
 
 // RedisStatus defines the observed state of Redis
 type RedisStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+
+	// Phase represent the current phase of Redis cluster
+	// +kubebuilder:validation:Enum=Pending;Running;Failed
+	Phase string `json:"phase,omitempty"`
+
+	// Conditions represent the latest available observations of Redis state
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ServiceName is the name of the service created for Redis cluster
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// CurrentMaster is the current master node in the case of sentinel/replica mode
+	CurrentMaster string `json:"currentMaster,omitempty"`
+
+	// ReadyReplicas is the number of ready Redis pods
+	ReadyReplicas int32 `json:"readyReplicas"`
+
+	// LastBackupTime is the last time backup was taken
+	LastBackupTime *metav1.Time `json:"lastBackupTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true
