@@ -64,6 +64,9 @@ type ResourceList struct {
 
 // StorageSpec defines the storage configuration
 type StorageSpec struct {
+	// Specify the access mode for the persistent volume
+	// +kubebuilder:validation:Enum=ReadWriteOnce;ReadOnlyMany;ReadWriteMany
+	AccessMode string `json:"accessMode,omitempty"`
 	// Storage defines the size of persistance volumn
 	Storage string `json:"storage,omitempty"`
 	// StorageClassName of persistance volumn
@@ -83,10 +86,6 @@ type RedisSpec struct {
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
-	// Password is the password for Redis
-	Password string `json:"password,omitempty"`
-	// AllowEmptyPassword allows empty password
-	AllowEmptyPassword bool `json:"allowEmptyPassword,omitempty"`
 
 	// Mode represents the mode of Redis (standalone, sentinel, cluster)
 	// +kubebuilder:validation:Enum=standalone;sentinel;cluster

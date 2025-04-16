@@ -8,6 +8,28 @@ metadata:
 spec:
   name: redis
   image: bitnami/redis:7.0.0
-  port: 6379
   replicas: 3
-  password: "Password!"
+  port: 6379
+  mode: standalone
+  resource:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  storage:
+    accessMode: ReadWriteOnce
+    storage: 1Gi
+    storageClassName: thin-csi
+  config:
+    # ALLOW_EMPTY_PASSWORD: true
+    REDIS_PASSWORD: "Password!"
+  # monitor:
+  backup:
+    enabled: true
+    schedule: "0 0 * * *"
+    # retention: 7
+    # retentionPolicy:
+  security:
+    enableTLS: false

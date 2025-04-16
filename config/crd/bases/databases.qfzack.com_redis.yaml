@@ -39,9 +39,6 @@ spec:
           spec:
             description: RedisSpec defines the desired state of Redis
             properties:
-              allowEmptyPassword:
-                description: AllowEmptyPassword allows empty password
-                type: boolean
               backup:
                 description: Backup configuration
                 properties:
@@ -84,9 +81,6 @@ spec:
                 type: object
               name:
                 description: Name is the part of pod name
-                type: string
-              password:
-                description: Password is the password for Redis
                 type: string
               port:
                 format: int32
@@ -131,6 +125,13 @@ spec:
               storage:
                 description: Storage confiuration for Redis pods
                 properties:
+                  accessMode:
+                    description: Specify the access mode for the persistent volume
+                    enum:
+                    - ReadWriteOnce
+                    - ReadOnlyMany
+                    - ReadWriteMany
+                    type: string
                   storage:
                     description: Storage defines the size of persistance volumn
                     type: string

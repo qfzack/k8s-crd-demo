@@ -21,7 +21,28 @@ bitnami/redis is a Redis image provided and maintained by [Bitnami Library](http
 | Auto Backup/Recovery | :x: | CRD Support |
 | State Awareness | :x: | CRD Support |
 
-## 3.Operator Design
+## 3.Project Structure
+
+
+```tree
+k8s-crd-demo/
+├── api/                    # API definitions (CRD specs)
+│   └── v1/                 # API version
+│       ├── redis_types.go  # CRD type definitions
+│       └── zz_generated.*  # Auto-generated deepcopy functions
+├── cmd/                    # Application entry points
+│   └── main.go             # Main program
+├── config/                 # Kubernetes manifests
+│   ├── crd/                # CRD yaml files
+│   ├── rbac/               # RBAC configurations
+│   └── samples/            # Example CR yaml files
+├── internal/               # Private application code
+│   ├── controller/         # Controller implementation
+│   └── helper/             # Shared utilities
+└── pkg/                    # Public libraries (if any)
+```
+
+## 4.Operator Design
 
 ### CRD Definition
 
