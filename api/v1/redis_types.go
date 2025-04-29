@@ -82,10 +82,8 @@ type RedisSpec struct {
 	// +required
 	Image string `json:"image,omitempty"`
 	// Replicas define the number of replicas
+	// +kubebuilder:validation:Minimum=0
 	Replicas int32 `json:"replicas,omitempty"`
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	Port int32 `json:"port,omitempty"`
 
 	// Mode represents the mode of Redis (standalone, sentinel, cluster)
 	// +kubebuilder:validation:Enum=standalone;sentinel;cluster
@@ -140,6 +138,7 @@ type RedisStatus struct {
 // +kubebuilder:subresource:status
 
 // Redis is the Schema for the redis API
+// +kubebuilder:webhook:verbs=create;update,path=/validate-databases-qfzack-com-v1-redis,mutating=false,failurePolicy=fail,groups=databases.qfzack.com,resources=redises,versions=v1,name=vredis.kb.io,admissionReviewVersions=v1
 type Redis struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

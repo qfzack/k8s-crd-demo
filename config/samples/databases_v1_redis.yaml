@@ -9,7 +9,6 @@ spec:
   name: redis
   image: bitnami/redis:7.0.0
   replicas: 3
-  port: 6379
   mode: standalone
   resource:
     requests:
@@ -24,7 +23,7 @@ spec:
     storageClassName: thin-csi
   config:
     # ALLOW_EMPTY_PASSWORD: true
-    REDIS_PASSWORD: "Password!"
+    REDIS_PASSWORD: "Password!"  # TODO set password with secrets
   # monitor:
   backup:
     enabled: true

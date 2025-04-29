@@ -82,14 +82,10 @@ spec:
               name:
                 description: Name is the part of pod name
                 type: string
-              port:
-                format: int32
-                maximum: 65535
-                minimum: 1
-                type: integer
               replicas:
                 description: Replicas define the number of replicas
                 format: int32
+                minimum: 0
                 type: integer
               resource:
                 description: Resource defines compute resource requirement
