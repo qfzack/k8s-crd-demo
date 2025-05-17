@@ -64,6 +64,12 @@ func (r *RedisReconciler) reconcileStandalone(ctx context.Context, redis *databa
 								Requests: convertResourceList(redis.Spec.Resource.Requests),
 							},
 							Env: envs,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      redis.Name,
+									MountPath: "/data",
+								},
+							},
 						},
 					},
 				},
@@ -88,6 +94,15 @@ func (r *RedisReconciler) reconcileStandalone(ctx context.Context, redis *databa
 						},
 					},
 					StorageClassName: &redis.Spec.Storage.StorageClassName,
+				},
+			},
+		}
+	} else {
+		sts.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: redis.Name,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
 		}

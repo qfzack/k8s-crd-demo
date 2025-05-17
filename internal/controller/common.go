@@ -48,8 +48,12 @@ func (r *RedisReconciler) createOrUpdate(ctx context.Context, obj client.Object)
 		return r.createOrUpdateCronJob(ctx, obj)
 	case *monitoringv1.ServiceMonitor:
 		return r.createOrUpdateServiceMonitor(ctx, obj)
+	case *corev1.ConfigMap:
+		return r.createOrUpdateConfigMap(ctx, obj)
+	case *corev1.Service:
+		return r.createOrUpdateServices(ctx, obj)
 	default:
-		return fmt.Errorf("unsupported resource type: %T", obj)
+		return fmt.Errorf("unsupported create or update resource type: %T", obj)
 	}
 }
 
@@ -119,6 +123,53 @@ func (r *RedisReconciler) createOrUpdateServiceMonitor(ctx context.Context, sm *
 	existing.Spec.NamespaceSelector = sm.Spec.NamespaceSelector
 
 	r.Logger.Info("Updating ServiceMonitor", "name", sm.Name)
+	return r.Update(ctx, existing)
+}
+
+func (r *RedisReconciler) createOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap) error {
+	existing := &corev1.ConfigMap{}
+	err := r.Get(ctx, types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, existing)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("Creating new ConfigMap", "name", cm.Name)
+			return r.Create(ctx, cm)
+		}
+		return err
+	}
+
+	// Update ConfigMap specific fields
+	existing.Data = cm.Data
+	existing.BinaryData = cm.BinaryData
+	existing.Labels = cm.Labels
+	existing.Annotations = cm.Annotations
+
+	r.Logger.Info("Updating ConfigMap", "name", cm.Name)
+	return r.Update(ctx, existing)
+}
+
+func (r *RedisReconciler) createOrUpdateServices(ctx context.Context, svc *corev1.Service) error {
+	existing := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, existing)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("Creating new Service", "name", svc.Name)
+			return r.Create(ctx, svc)
+		}
+		return err
+	}
+
+	// immutable fields
+	svc.Spec.ClusterIP = existing.Spec.ClusterIP
+	svc.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
+
+	// update service fields
+	existing.Spec.Ports = svc.Spec.Ports
+	existing.Spec.Selector = svc.Spec.Selector
+	existing.Labels = svc.Labels
+	existing.Annotations = svc.Annotations
+
+	r.Logger.Info("Updating Service", "name", svc.Name)
 	return r.Update(ctx, existing)
 }
 
@@ -210,6 +261,71 @@ func (r *RedisReconciler) updateStatus(ctx context.Context, redis *databasesv1.R
 	}
 
 	return ctrl.Result{RequeueAfter: time.Minute}, nil
+}
+
+func (r *RedisReconciler) createServices(ctx context.Context, redis *databasesv1.Redis) error {
+	// create headless service
+	headlessSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      redis.Name, // TODO provide custom config
+			Namespace: redis.Namespace,
+			Labels: map[string]string{
+				"app": redis.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None", // Headless Service
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "redis",
+					Port:     RedisPort,
+					Protocol: corev1.ProtocolTCP,
+				},
+				{
+					Name:     "cluster",
+					Port:     RedisPort + 10000, // cluster bus port
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			Selector: map[string]string{
+				"app": redis.Name,
+			},
+		},
+	}
+
+	// creat client service provide redis service
+	clientSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-client", redis.Name),
+			Namespace: redis.Namespace,
+			Labels: map[string]string{
+				"app": redis.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "redis",
+					Port:     RedisPort,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			Selector: map[string]string{
+				"app": redis.Name,
+			},
+		},
+	}
+
+	if err := r.createOrUpdate(ctx, headlessSvc); err != nil {
+		return fmt.Errorf("failed to create/update headless service: %w", err)
+	}
+
+	if err := r.createOrUpdate(ctx, clientSvc); err != nil {
+		return fmt.Errorf("failed to create/update client service: %w", err)
+	}
+
+	return nil
 }
 
 func convertResourceList(resources databasesv1.ResourceList) corev1.ResourceList {

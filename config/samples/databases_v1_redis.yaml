@@ -4,12 +4,12 @@ metadata:
   labels:
     app.kubernetes.io/name: k8s-crd-demo
     app.kubernetes.io/managed-by: kustomize
-  name: redis-instance
+  name: redis
 spec:
   name: redis
   image: bitnami/redis:7.0.0
-  replicas: 3
-  mode: standalone
+  replicas: 6
+  mode: cluster
   resource:
     requests:
       cpu: 100m
@@ -17,10 +17,10 @@ spec:
     limits:
       cpu: 200m
       memory: 256Mi
-  storage:
-    accessMode: ReadWriteOnce
-    storage: 1Gi
-    storageClassName: thin-csi
+  # storage:
+  #   accessMode: ReadWriteOnce
+  #   storage: 1Gi
+  #   storageClassName: thin-csi
   config:
     # ALLOW_EMPTY_PASSWORD: true
     REDIS_PASSWORD: "Password!"  # TODO set password with secrets
