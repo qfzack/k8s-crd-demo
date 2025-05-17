@@ -6,7 +6,7 @@ Kubebuilder is a framework for building Kubernetes APIs using [custom resource d
 
 It can easily generate a basic project for you to create your Kubernetes CRDs, so that you only need to focus on the implementation of the functionality without wasting time on the framework of the project.
 
-## How to use Kubebuilder
+## Start with Kubebuilder
 
 Install Kubebuilder refer to [Kubebuilder-quick-start](https://book.kubebuilder.io/quick-start.html#installation).
 
@@ -45,7 +45,9 @@ Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/e72
 - `api/vi/<kind-name>_types.go` is to define custom CRD fields.
 - `internal/controller/<kind-name>_controller.go` is to implement Kubernetes API for **custom resource (CR)** management.
 
-**5.Generate CRD configuration**
+## Apply CRD resources to cluster
+
+**1.Generate CRD configuration**
 
 Generate CRD configurations from code.
 
@@ -53,7 +55,7 @@ Generate CRD configurations from code.
 make manifests
 ```
 
-**6.Apply CRD to Kubernetes cluster**
+**2.Apply CRD to Kubernetes cluster**
 
 > Kubebuilder also generate a **Makefile** that contains common operations for CRD, such as: CRD updates, operator service startup, etc.
 
@@ -63,7 +65,7 @@ make install
 
 It will generate the CRD yaml file in directory `config/crd/bases` and apply it to Kubernetes cluster.
 
-**7.Create Custom Resource**
+**3.Create custom resource**
 
 After CRD appled to Kubernetes cluster, it is equivalent defined a new resource (source name specified with --kind <kind-name>), and then we are abled to creat this kind custom resource.
 
@@ -73,13 +75,36 @@ After CRD appled to Kubernetes cluster, it is equivalent defined a new resource 
 kubectl apply -f ./config/samples/databases_v1_redis.yaml
 ```
 
-**8.Run Operator for CRD monitoring**
+**4.Run Operator as CRD controller**
 
 After we created CR in Kubernetes cluster, it is just created a resource instance (like deployment in K8s) but not create pod.
 
 And then need operator to monitor our configuration changes, and we can achieve the resource management functionality we want by calling the k8s API.
 
-
 ```shell
 make run
 ```
+
+## Configure monitoring
+
+[prometheus config](../config/prometheus/) is used to configure the Prometheus monitoring, which is a resource of type CRD `ServiceMonitor`, so it neccessary to install this CRD before use monitoring:
+
+```shell
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/kube-prometheus-stack -n <namespace>
+```
+
+and then apply redis prometheus monitoring configs with:
+
+```shell
+kubectl apply -k ./config/prometheus
+```
+
+check ServiceMonitor CR status with:
+
+```shell
+kubectl get crd
+kubectl get servicemonitors.monitoring.coreos.com -n monitoring
+```
+

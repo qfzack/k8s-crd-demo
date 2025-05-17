@@ -28,6 +28,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -115,7 +116,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.EventRecord = mgr.GetEventRecorderFor("RedisController")
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&databasesv1.Redis{}).
 		// Watch StatefulSet
 		Owns(&appsv1.StatefulSet{}).
@@ -128,10 +129,19 @@ func (r *RedisReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch PVCs
 		Owns(&corev1.PersistentVolumeClaim{}).
 		// Watch CronJobs
-		Owns(&batchv1.CronJob{}).
+		Owns(&batchv1.CronJob{})
+
+	if _, err := r.Client.RESTMapper().RESTMapping(schema.GroupKind{
+		Group: monitoringv1.SchemeGroupVersion.Group,
+		Kind:  "ServiceMonitor",
+	}, monitoringv1.SchemeGroupVersion.Version); err == nil {
 		// Watch ServiceMonitors for monitoring
-		Owns(&monitoringv1.ServiceMonitor{}).
-		// Add indexes for faster lookups
+		builder = builder.Owns(&monitoringv1.ServiceMonitor{})
+	} else {
+		r.Logger.Info("ServiceMonitor CRD not found, monitoring feature will be disabled")
+	}
+
+	return builder.
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
