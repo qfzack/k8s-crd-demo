@@ -107,4 +107,3 @@ check ServiceMonitor CR status with:
 kubectl get crd
 kubectl get servicemonitors.monitoring.coreos.com -n monitoring
 ```
-

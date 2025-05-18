@@ -19,12 +19,28 @@ echo "- Master nodes: $MASTER_COUNT"
 echo "- Replicas per master: $CLUSTER_REPLICAS"
 
 echo "Waiting for all Redis nodes to be ready..."
+WAIT_TIMEOUT=60
+START_TIME=$(date +%s)
 for i in $(seq 0 $((TOTAL_REPLICAS-1))); do
-    until redis-cli -h "${HOSTNAME%%-*}-$i.${HOSTNAME%%-*}" ping > /dev/null 2>&1; do
-        echo "Waiting for ${HOSTNAME%%-*}-$i.${HOSTNAME%%-*}..."
-        sleep 2
+    node="${HOSTNAME%%-*}-$i.${HOSTNAME%%-*}"
+    while true; do
+        CURRENT_TIME=$(date +%s)
+        ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+        
+        if [ $ELAPSED_TIME -gt $WAIT_TIMEOUT ]; then
+            echo "Error: Timeout waiting for Redis nodes after ${WAIT_TIMEOUT} seconds"
+            echo "Failed node: $node"
+            exit 1
+        fi
+
+        if redis-cli -h "$node" ping > /dev/null 2>&1; then
+            echo "Node $node is ready"
+            break
+        else
+            echo "Waiting for $node... (${ELAPSED_TIME}s elapsed)"
+            sleep 2
+        fi
     done
-    echo "Node ${HOSTNAME%%-*}-$i is ready"
 done
 
 check_cluster_status() {
@@ -62,7 +78,7 @@ if redis-cli --cluster create $nodes \
     
     # verify the redis cluster status
     echo "Verifying cluster status..."
-    if redis-cli --cluster check "${HOSTNAME}.${HOSTNAME%%-*}:${REDIS_PORT}"; then
+    if redis-cli --cluster check "${HOSTNAME%%-*}-0.${HOSTNAME%%-*}:${REDIS_PORT}"; then
         echo "Cluster verification completed successfully"
     else
         echo "Cluster verification failed"

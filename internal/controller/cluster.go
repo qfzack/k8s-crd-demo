@@ -89,6 +89,7 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 								"--cluster-enabled", "yes",
 								"--dir", "/data",
 								"--protected-mode", "no",
+								"--cluster-config-file", "/data/nodes.conf",
 							},
 							Ports: []corev1.ContainerPort{
 								{ContainerPort: RedisPort},
@@ -113,7 +114,9 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 	}
 
 	// apply storage configuration if specified
+	usedPV := false
 	if redis.Spec.Storage.Storage != "" {
+		usedPV = true
 		sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -144,18 +147,9 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 	}
 
 	// create cronjob for redis cluster configuring
-	if redis.Annotations[clusterInitializedAnnotation] != "true" {
-		if err := r.createClusterManagerJob(ctx, redis, clusterReplicas); err != nil {
-			r.Logger.Error(err, "Failed to create or update services")
-			return err
-		}
-		if redis.Annotations == nil {
-			redis.Annotations = make(map[string]string)
-		}
-		redis.Annotations[clusterInitializedAnnotation] = "true"
-		if err := r.Update(ctx, redis); err != nil {
-			return err
-		}
+	if err := r.createClusterManagerJob(ctx, redis, clusterReplicas, usedPV); err != nil {
+		r.Logger.Error(err, "Failed to create or update services")
+		return err
 	}
 
 	// Create or update StatefulSet
@@ -167,7 +161,6 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 		r.Logger.Error(err, "Failed to create or update services")
 		return err
 	}
-	// TODO only run once
 
 	return nil
 }
@@ -193,57 +186,60 @@ func (r *RedisReconciler) createConfigMap(ctx context.Context, redis *databasesv
 	return r.createOrUpdate(ctx, cm)
 }
 
-func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *databasesv1.Redis, replicas int) error {
-	job := &batchv1.CronJob{
+func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *databasesv1.Redis, replicas int, usedPV bool) error {
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-cluster-manager", redis.Name),
 			Namespace: redis.Namespace,
+			Labels: map[string]string{
+				"app": redis.Name,
+			},
 		},
-		Spec: batchv1.CronJobSpec{
-			Schedule: "*/1 * * * *",
-			JobTemplate: batchv1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyOnFailure,
-							Containers: []corev1.Container{
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": redis.Name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							Name:    "cluster-manager",
+							Image:   redis.Spec.Image,
+							Command: []string{"/scripts/cluster-init.sh"},
+							Env: []corev1.EnvVar{
 								{
-									Name:    "cluster-manager",
-									Image:   redis.Spec.Image,
-									Command: []string{"/scripts/cluster-init.sh"},
-									Env: []corev1.EnvVar{
-										{
-											Name:  "TOTAL_REPLICAS",
-											Value: strconv.Itoa(int(redis.Spec.Replicas)),
-										},
-										{
-											Name:  "REDIS_PORT",
-											Value: strconv.Itoa(int(RedisPort)),
-										},
-										{
-											Name:  "CLUSTER_REPLICAS",
-											Value: strconv.Itoa(replicas),
-										},
-									},
-									VolumeMounts: []corev1.VolumeMount{
-										{
-											Name:      "init-script",
-											MountPath: "/scripts",
-										},
-									},
+									Name:  "TOTAL_REPLICAS",
+									Value: strconv.Itoa(int(redis.Spec.Replicas)),
+								},
+								{
+									Name:  "REDIS_PORT",
+									Value: strconv.Itoa(int(RedisPort)),
+								},
+								{
+									Name:  "CLUSTER_REPLICAS",
+									Value: strconv.Itoa(replicas),
 								},
 							},
-							Volumes: []corev1.Volume{
+							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "init-script",
-									VolumeSource: corev1.VolumeSource{
-										ConfigMap: &corev1.ConfigMapVolumeSource{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: fmt.Sprintf("%s-init-script", redis.Name),
-											},
-											DefaultMode: pointer.Int32(0755),
-										},
+									Name:      "init-script",
+									MountPath: "/scripts",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "init-script",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: fmt.Sprintf("%s-init-script", redis.Name),
 									},
+									DefaultMode: pointer.Int32(0755),
 								},
 							},
 						},
@@ -252,5 +248,29 @@ func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *da
 			},
 		},
 	}
+
+	//  TODO
+	//  if no PV is used, when pod changed, the nodes.config will be lossed
+	//  need to rebalance the redis cluster or add some check to force use the PV
+	// and init script will not recreate cluster if the cluster is already initialized
+
+	// if !usedPV {
+	// 	existing := &batchv1.Job{}
+	// 	err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, existing)
+	// 	if err == nil {
+	// 		if err := r.Delete(ctx, existing); err != nil {
+	// 			return fmt.Errorf("failed to delete existing job: %w", err)
+	// 		}
+
+	// 		err = wait.PollUntilContextTimeout(ctx, time.Second, time.Second*30, true, func(ctx context.Context) (bool, error) {
+	// 			err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: redis.Namespace}, existing)
+	// 			return apierrors.IsNotFound(err), nil
+	// 		})
+	// 		if err != nil {
+	// 			return fmt.Errorf("timeout waiting for job deletion: %w", err)
+	// 		}
+	// 	}
+	// }
+
 	return r.createOrUpdate(ctx, job)
 }

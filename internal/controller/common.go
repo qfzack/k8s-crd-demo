@@ -52,6 +52,8 @@ func (r *RedisReconciler) createOrUpdate(ctx context.Context, obj client.Object)
 		return r.createOrUpdateConfigMap(ctx, obj)
 	case *corev1.Service:
 		return r.createOrUpdateServices(ctx, obj)
+	case *batchv1.Job:
+		return r.createOrUpdateJob(ctx, obj)
 	default:
 		return fmt.Errorf("unsupported create or update resource type: %T", obj)
 	}
@@ -171,6 +173,59 @@ func (r *RedisReconciler) createOrUpdateServices(ctx context.Context, svc *corev
 
 	r.Logger.Info("Updating Service", "name", svc.Name)
 	return r.Update(ctx, existing)
+}
+
+func (r *RedisReconciler) createOrUpdateJob(ctx context.Context, job *batchv1.Job) error {
+	existing := &batchv1.Job{}
+	err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, existing)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("Creating new Job", "name", job.Name)
+			return r.Create(ctx, job)
+		}
+		return err
+	}
+
+	if existing.Status.Succeeded > 0 {
+		r.Logger.Info("Job already completed successfully", "name", job.Name)
+		return nil
+	}
+
+	if existing.Status.Failed > 0 {
+		r.Logger.Info("Deleting failed Job", "name", job.Name)
+		if err := r.Delete(ctx, existing); err != nil {
+			return fmt.Errorf("failed to delete failed job: %w", err)
+		}
+
+		if err := r.waitForDeletion(ctx, existing); err != nil {
+			return fmt.Errorf("failed to wait for job deletion: %w", err)
+		}
+
+		r.Logger.Info("Creating new Job after failure", "name", job.Name)
+		return r.Create(ctx, job)
+	}
+
+	r.Logger.Info("Job is still running", "name", job.Name)
+	return nil
+}
+
+func (r *RedisReconciler) waitForDeletion(ctx context.Context, obj client.Object) error {
+	key := types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
+
+	for range 30 {
+		err := r.Get(ctx, key, obj)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("timeout waiting for resource deletion")
 }
 
 func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *databasesv1.Redis) error {
