@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	RedisPort = int32(6379)
+	RedisPort         = int32(6379)
+	RedisSentinelPort = int32(26379)
 )
 
 func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *databasesv1.Redis, err error) (ctrl.Result, error) {
