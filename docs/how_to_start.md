@@ -72,7 +72,7 @@ After CRD appled to Kubernetes cluster, it is equivalent defined a new resource 
 [databases_v1_redis.yaml](../config/samples/databases_v1_redis.yaml) is an example could be used to deployed in Kubernetes cluster with:
 
 ```shell
-kubectl apply -f ./config/samples/databases_v1_redis.yaml
+kubectl apply -f ./config/samples/databases_v1_redis.yaml -n <namespace>
 ```
 
 **4.Run Operator as CRD controller**

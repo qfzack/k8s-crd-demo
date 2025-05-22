@@ -7,6 +7,7 @@ import (
 	databasesv1 "github.com/qfzack/redis-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
@@ -17,7 +18,20 @@ const (
 )
 
 func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *databasesv1.Redis) error {
-	envs := []corev1.EnvVar{}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "REDIS_MASTER_HOST",
+			Value: fmt.Sprintf("%s-master", redis.Name),
+		},
+		{
+			Name: "POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+	}
 	for k, v := range redis.Spec.Config {
 		envs = append(envs, corev1.EnvVar{
 			Name:  k,
@@ -43,6 +57,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 					"role": "master",
 				},
 			},
+			ServiceName: fmt.Sprintf("%s-master", redis.Name),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -55,7 +70,12 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 						{
 							Name:    redis.Spec.Name,
 							Image:   redis.Spec.Image,
-							Command: []string{"redis-server", "/etc/redis/redis.conf"},
+							Command: []string{"redis-server"},
+							Args: []string{
+								"--bind", "0.0.0.0",
+								"--dir", "/data",
+								"--protected-mode", "no",
+							},
 							Ports: []corev1.ContainerPort{
 								{ContainerPort: RedisPort},
 							},
@@ -65,25 +85,29 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 							},
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
+								// {
+								// 	Name:      "master-config",
+								// 	MountPath: "/etc/redis",
+								// },
 								{
-									Name:      "master-config",
-									MountPath: "/etc/redis",
+									Name:      fmt.Sprintf("%s-master", redis.Name),
+									MountPath: "/data",
 								},
 							},
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "master-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("%s-master-config", redis.Name),
-									},
-								},
-							},
-						},
-					},
+					// 	Volumes: []corev1.Volume{
+					// 		{
+					// 			Name: "master-config",
+					// 			VolumeSource: corev1.VolumeSource{
+					// 				ConfigMap: &corev1.ConfigMapVolumeSource{
+					// 					LocalObjectReference: corev1.LocalObjectReference{
+					// 						Name: fmt.Sprintf("%s-master-config", redis.Name),
+					// 					},
+					// 				},
+					// 			},
+					// 		},
+					// 	},
 				},
 			},
 		},
@@ -107,6 +131,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 					"role": "replica",
 				},
 			},
+			ServiceName: fmt.Sprintf("%s-replica", redis.Name),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -119,7 +144,14 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 						{
 							Name:    redis.Name,
 							Image:   redis.Spec.Image,
-							Command: []string{"redis-server", "/etc/redis/redis.conf"},
+							Command: []string{"sh", "-c"},
+							Args: []string{
+								"redis-server",
+								"--dir", "/data",
+								"--protected-mode", "no",
+								"&&", "sleep 10",
+								"&&", "redis-cli", "replicaof", "redis-master-0.redis-master", "6379",
+							},
 							Ports: []corev1.ContainerPort{
 								{ContainerPort: RedisPort},
 							},
@@ -129,32 +161,36 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 							},
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
+								// {
+								// 	Name:      "replica-config",
+								// 	MountPath: "/etc/redis",
+								// },
 								{
-									Name:      "replica-config",
-									MountPath: "/etc/redis",
+									Name:      fmt.Sprintf("%s-replica", redis.Name),
+									MountPath: "/data",
 								},
 							},
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "replica-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("%s-replica-config", redis.Name),
-									},
-								},
-							},
-						},
-					},
+					// Volumes: []corev1.Volume{
+					// 	{
+					// 		Name: "replica-config",
+					// 		VolumeSource: corev1.VolumeSource{
+					// 			ConfigMap: &corev1.ConfigMapVolumeSource{
+					// 				LocalObjectReference: corev1.LocalObjectReference{
+					// 					Name: fmt.Sprintf("%s-replica-config", redis.Name),
+					// 				},
+					// 			},
+					// 		},
+					// 	},
+					// },
 				},
 			},
 		},
 	}
 
-	//  sentinel statefulset configuration
-	sentinelSts := &appsv1.StatefulSet{
+	// sentinel deployment configuration
+	sentinelDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-sentinel", redis.Name),
 			Namespace: redis.Namespace,
@@ -163,7 +199,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 				"role": "sentinel",
 			},
 		},
-		Spec: appsv1.StatefulSetSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: pointer.Int32(3),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -181,41 +217,113 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:    "sentinel",
-							Image:   redis.Spec.Image,
-							Command: []string{"redis-server", "/etc/redis/sentinel.conf"},
-							Args:    []string{"--sentinel"},
+							Name:  "sentinel",
+							Image: redis.Spec.Image,
+							Command: []string{
+								"sh",
+								"-c",
+								`cat > /etc/redis/sentinel.conf << EOF
+port 26379
+sentinel announce-ip $POD_IP
+sentinel announce-port 26379
+sentinel monitor mymaster $REDIS_MASTER_HOST 6379 2
+sentinel down-after-milliseconds mymaster 5000
+sentinel failover-timeout mymaster 60000
+sentinel parallel-syncs mymaster 1
+EOF
+&& redis-server /etc/redis/sentinel.conf --sentinel
+`,
+							},
 							Ports: []corev1.ContainerPort{
 								{ContainerPort: RedisSentinelPort},
 							},
 							Env: envs,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "sentinel-config",
-									MountPath: "/etc/redis",
-								},
-							},
+							// VolumeMounts: []corev1.VolumeMount{
+							// 	{
+							// 		Name:      "sentinel-config",
+							// 		MountPath: "/etc/redis",
+							// 	},
+							// },
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "sentinel-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("%s-sentinel-config", redis.Name),
-									},
-								},
-							},
-						},
-					},
+					// Volumes: []corev1.Volume{
+					// 	{
+					// 		Name: "sentinel-config",
+					// 		VolumeSource: corev1.VolumeSource{
+					// 			ConfigMap: &corev1.ConfigMapVolumeSource{
+					// 				LocalObjectReference: corev1.LocalObjectReference{
+					// 					Name: fmt.Sprintf("%s-sentinel-config", redis.Name),
+					// 				},
+					// 			},
+					// 		},
+					// 	},
+					// },
 				},
 			},
 		},
 	}
 
 	// TODO apply storage configuration if specified
+	if redis.Spec.Storage.Storage != "" {
+		masterSts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("%s-master", redis.Name),
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.PersistentVolumeAccessMode(redis.Spec.Storage.AccessMode),
+					},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse(redis.Spec.Storage.Storage),
+						},
+					},
+					StorageClassName: &redis.Spec.Storage.StorageClassName,
+				},
+			},
+		}
+		replicaSts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("%s-replica", redis.Name),
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.PersistentVolumeAccessMode(redis.Spec.Storage.AccessMode),
+					},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse(redis.Spec.Storage.Storage),
+						},
+					},
+					StorageClassName: &redis.Spec.Storage.StorageClassName,
+				},
+			},
+		}
+	} else {
+		masterSts.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: fmt.Sprintf("%s-master", redis.Name),
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		}
+		replicaSts.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: fmt.Sprintf("%s-replica", redis.Name),
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		}
+	}
 
+	// // create configMap
+	// if err := r.createConfigMaps(ctx, redis); err != nil {
+	// 	return err
+	// }
 	// create or update StatefulSets
 	if err := r.createOrUpdate(ctx, masterSts); err != nil {
 		return err
@@ -223,7 +331,11 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 	if err := r.createOrUpdate(ctx, replicaSts); err != nil {
 		return err
 	}
-	if err := r.createOrUpdate(ctx, sentinelSts); err != nil {
+	if err := r.createOrUpdate(ctx, sentinelDeployment); err != nil {
+		return err
+	}
+	// create services
+	if err := r.createSentinelSvcs(ctx, redis); err != nil {
 		return err
 	}
 
@@ -244,14 +356,14 @@ port 6379
 dir /data
 appendonly yes
 protected-mode no
-replicaof ${REDIS_MASTER_HOST} 6379
+replicaof redis-0.redis 6379
 `}
 	sentinelConfig := map[string]string{
 		SentinelConfKey: `
 port 26379
 sentinel announce-ip ${POD_IP}
 sentinel announce-port 26379
-sentinel monitor mymaster ${REDIS_MASTER_HOST} 6379 2
+sentinel monitor mymaster redis-0.redis 6379 2
 sentinel down-after-milliseconds mymaster 5000
 sentinel failover-timeout mymaster 60000
 sentinel parallel-syncs mymaster 1
@@ -281,7 +393,7 @@ sentinel parallel-syncs mymaster 1
 		Data: sentinelConfig,
 	}
 
-	// 创建或更新 ConfigMap
+	// create or update ConfigMap
 	if err := r.createOrUpdate(ctx, masterCm); err != nil {
 		return err
 	}
@@ -295,8 +407,7 @@ sentinel parallel-syncs mymaster 1
 	return nil
 }
 
-// TODO
-func (r *RedisReconciler) createServices(ctx context.Context, redis *databasesv1.Redis) error {
+func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databasesv1.Redis) error {
 	// Master Service
 	masterSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -308,15 +419,41 @@ func (r *RedisReconciler) createServices(ctx context.Context, redis *databasesv1
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app":  redis.Name,
-				"role": "master",
-			},
+			ClusterIP: "None", // Headless Service
 			Ports: []corev1.ServicePort{
 				{
 					Name: "redis",
 					Port: RedisPort,
 				},
+			},
+			Selector: map[string]string{
+				"app":  redis.Name,
+				"role": "master",
+			},
+		},
+	}
+
+	// replica Service
+	replicaSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-replica", redis.Name),
+			Namespace: redis.Namespace,
+			Labels: map[string]string{
+				"app":  redis.Name,
+				"role": "replica",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None", // Headless Service
+			Ports: []corev1.ServicePort{
+				{
+					Name: "redis",
+					Port: RedisPort,
+				},
+			},
+			Selector: map[string]string{
+				"app":  redis.Name,
+				"role": "replica",
 			},
 		},
 	}
@@ -346,6 +483,9 @@ func (r *RedisReconciler) createServices(ctx context.Context, redis *databasesv1
 	}
 
 	if err := r.createOrUpdate(ctx, masterSvc); err != nil {
+		return err
+	}
+	if err := r.createOrUpdate(ctx, replicaSvc); err != nil {
 		return err
 	}
 	if err := r.createOrUpdate(ctx, sentinelSvc); err != nil {

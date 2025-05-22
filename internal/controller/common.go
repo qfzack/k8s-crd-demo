@@ -22,6 +22,9 @@ import (
 const (
 	RedisPort         = int32(6379)
 	RedisSentinelPort = int32(26379)
+
+	clusterInitScript            = "cluster-init.sh"
+	clusterInitializedAnnotation = "redis.database.example.com/cluster-initialized"
 )
 
 func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *databasesv1.Redis, err error) (ctrl.Result, error) {
@@ -45,6 +48,8 @@ func (r *RedisReconciler) createOrUpdate(ctx context.Context, obj client.Object)
 	switch obj := obj.(type) {
 	case *appsv1.StatefulSet:
 		return r.createOrUpdateStatefulSet(ctx, obj)
+	case *appsv1.Deployment:
+		return r.createOrUpdateDeployment(ctx, obj)
 	case *batchv1.CronJob:
 		return r.createOrUpdateCronJob(ctx, obj)
 	case *monitoringv1.ServiceMonitor:
@@ -82,6 +87,30 @@ func (r *RedisReconciler) createOrUpdateStatefulSet(ctx context.Context, sts *ap
 	existing.Spec.MinReadySeconds = sts.Spec.MinReadySeconds
 
 	r.Logger.Info("Updating StatefulSet", "name", sts.Name)
+	return r.Update(ctx, existing)
+}
+
+func (r *RedisReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment) error {
+	existing := &appsv1.Deployment{}
+	key := types.NamespacedName{
+		Name:      deploy.GetName(),
+		Namespace: deploy.GetNamespace(),
+	}
+	err := r.Get(ctx, key, existing)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("Creating new Deployment", "name", deploy.Name)
+			return r.Create(ctx, deploy)
+		}
+		return err
+	}
+
+	// Update mutable fields
+	existing.Spec.Replicas = deploy.Spec.Replicas
+	existing.Spec.Template = deploy.Spec.Template
+	existing.Spec.Strategy = deploy.Spec.Strategy
+
+	r.Logger.Info("Updating Deployment", "name", deploy.Name)
 	return r.Update(ctx, existing)
 }
 
@@ -305,7 +334,12 @@ func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *data
 
 func (r *RedisReconciler) updateStatus(ctx context.Context, redis *databasesv1.Redis) (ctrl.Result, error) {
 	sts := &appsv1.StatefulSet{}
-	if err := r.Get(ctx, types.NamespacedName{Name: redis.Name, Namespace: redis.Namespace}, sts); err != nil {
+	// TODO sentinel mode redis name is redis-master, redis-replica and redis-sentinel
+	redisName := redis.Name
+	if redis.Spec.Mode == "sentinel" {
+		redisName = fmt.Sprintf("%s-master", redis.Name)
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: redisName, Namespace: redis.Namespace}, sts); err != nil {
 		return ctrl.Result{}, err
 	}
 

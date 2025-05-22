@@ -8,8 +8,8 @@ metadata:
 spec:
   name: redis
   image: bitnami/redis:7.0.0
-  replicas: 6
-  mode: cluster
+  replicas: 2
+  mode: sentinel
   resource:
     requests:
       cpu: 100m
@@ -19,7 +19,7 @@ spec:
       memory: 256Mi
   # storage:
   #   accessMode: ReadWriteOnce
-  #   storage: 1Gi
+  #   storage: 100Mi
   #   storageClassName: thin-csi
   config:
     # ALLOW_EMPTY_PASSWORD: true

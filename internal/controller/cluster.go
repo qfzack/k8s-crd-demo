@@ -18,12 +18,6 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-const (
-	clusterInitScript = "cluster-init.sh"
-
-	clusterInitializedAnnotation = "redis.database.example.com/cluster-initialized"
-)
-
 func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databasesv1.Redis) error {
 	// TODO move to custom config
 	const clusterReplicas = 1
