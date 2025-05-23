@@ -8,7 +8,7 @@ metadata:
 spec:
   name: redis
   image: bitnami/redis:7.0.0
-  replicas: 2
+  replicas: 3
   mode: sentinel
   resource:
     requests:
