@@ -24,6 +24,7 @@ const (
 	RedisSentinelPort = int32(26379)
 
 	clusterInitScript            = "cluster-init.sh"
+	sentinelInitScript           = "sentinel-init.sh"
 	clusterInitializedAnnotation = "redis.database.example.com/cluster-initialized"
 )
 
