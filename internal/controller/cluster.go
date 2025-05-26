@@ -19,15 +19,11 @@ import (
 )
 
 const (
+	clusterReplicas   = 1
 	clusterInitScript = "cluster-init.sh"
-
-	clusterInitializedAnnotation = "redis.database.example.com/cluster-initialized"
 )
 
 func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databasesv1.Redis) error {
-	// TODO move to custom config
-	const clusterReplicas = 1
-
 	envs := []corev1.EnvVar{}
 	for k, v := range redis.Spec.Config {
 		envs = append(envs, corev1.EnvVar{
@@ -66,7 +62,7 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 					InitContainers: []corev1.Container{
 						{
 							Name:    "redis-init",
-							Image:   redis.Spec.Image,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"sh", "-c"},
 							Args:    []string{"chown -R 1001:1001 /data"},
 							SecurityContext: &corev1.SecurityContext{
@@ -82,8 +78,8 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 					},
 					Containers: []corev1.Container{
 						{
-							Name:    redis.Spec.Name,
-							Image:   redis.Spec.Image,
+							Name:    redis.Name,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"redis-server"},
 							Args: []string{
 								"--cluster-enabled", "yes",
@@ -207,7 +203,7 @@ func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *da
 					Containers: []corev1.Container{
 						{
 							Name:    "cluster-manager",
-							Image:   redis.Spec.Image,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"/scripts/cluster-init.sh"},
 							Env: []corev1.EnvVar{
 								{
@@ -248,29 +244,6 @@ func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *da
 			},
 		},
 	}
-
-	//  TODO
-	//  if no PV is used, when pod changed, the nodes.config will be lossed
-	//  need to rebalance the redis cluster or add some check to force use the PV
-	// and init script will not recreate cluster if the cluster is already initialized
-
-	// if !usedPV {
-	// 	existing := &batchv1.Job{}
-	// 	err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, existing)
-	// 	if err == nil {
-	// 		if err := r.Delete(ctx, existing); err != nil {
-	// 			return fmt.Errorf("failed to delete existing job: %w", err)
-	// 		}
-
-	// 		err = wait.PollUntilContextTimeout(ctx, time.Second, time.Second*30, true, func(ctx context.Context) (bool, error) {
-	// 			err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: redis.Namespace}, existing)
-	// 			return apierrors.IsNotFound(err), nil
-	// 		})
-	// 		if err != nil {
-	// 			return fmt.Errorf("timeout waiting for job deletion: %w", err)
-	// 		}
-	// 	}
-	// }
 
 	return r.createOrUpdate(ctx, job)
 }

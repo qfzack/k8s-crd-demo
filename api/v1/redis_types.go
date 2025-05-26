@@ -75,12 +75,9 @@ type StorageSpec struct {
 
 // RedisSpec defines the desired state of Redis
 type RedisSpec struct {
-	// Name is the part of pod name
+	// Version define the used Redis docker image tag
 	// +required
-	Name string `json:"name,omitempty"`
-	// Image define the used docker image
-	// +required
-	Image string `json:"image,omitempty"`
+	Version string `json:"version,omitempty"`
 	// Replicas define the number of replicas
 	// +kubebuilder:validation:Minimum=0
 	Replicas int32 `json:"replicas,omitempty"`

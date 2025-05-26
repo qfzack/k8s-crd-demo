@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	RedisPort = int32(6379)
+	RedisImage = "bitnami/redis:%s"
+	RedisPort  = int32(6379)
 )
 
 func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *databasesv1.Redis, err error) (ctrl.Result, error) {
@@ -44,6 +45,8 @@ func (r *RedisReconciler) createOrUpdate(ctx context.Context, obj client.Object)
 	switch obj := obj.(type) {
 	case *appsv1.StatefulSet:
 		return r.createOrUpdateStatefulSet(ctx, obj)
+	case *appsv1.Deployment:
+		return r.createOrUpdateDeployment(ctx, obj)
 	case *batchv1.CronJob:
 		return r.createOrUpdateCronJob(ctx, obj)
 	case *monitoringv1.ServiceMonitor:
@@ -81,6 +84,30 @@ func (r *RedisReconciler) createOrUpdateStatefulSet(ctx context.Context, sts *ap
 	existing.Spec.MinReadySeconds = sts.Spec.MinReadySeconds
 
 	r.Logger.Info("Updating StatefulSet", "name", sts.Name)
+	return r.Update(ctx, existing)
+}
+
+func (r *RedisReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment) error {
+	existing := &appsv1.Deployment{}
+	key := types.NamespacedName{
+		Name:      deploy.GetName(),
+		Namespace: deploy.GetNamespace(),
+	}
+	err := r.Get(ctx, key, existing)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("Creating new Deployment", "name", deploy.Name)
+			return r.Create(ctx, deploy)
+		}
+		return err
+	}
+
+	// Update mutable fields
+	existing.Spec.Replicas = deploy.Spec.Replicas
+	existing.Spec.Template = deploy.Spec.Template
+	existing.Spec.Strategy = deploy.Spec.Strategy
+
+	r.Logger.Info("Updating Deployment", "name", deploy.Name)
 	return r.Update(ctx, existing)
 }
 
@@ -279,8 +306,8 @@ func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *data
 							Spec: corev1.PodSpec{
 								Containers: []corev1.Container{
 									{
-										Name:  fmt.Sprintf("%s-backup", redis.Spec.Name),
-										Image: redis.Spec.Image,
+										Name:  fmt.Sprintf("%s-backup", redis.Name),
+										Image: fmt.Sprintf(RedisImage, redis.Spec.Version),
 										Command: []string{
 											"redis-cli",
 											"SAVE",

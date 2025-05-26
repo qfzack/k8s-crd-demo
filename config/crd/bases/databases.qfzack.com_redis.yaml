@@ -57,9 +57,6 @@ spec:
                   type: string
                 description: Redis configuration options
                 type: object
-              image:
-                description: Image define the used docker image
-                type: string
               mode:
                 description: Mode represents the mode of Redis (standalone, sentinel,
                   cluster)
@@ -79,9 +76,6 @@ spec:
                     format: int32
                     type: integer
                 type: object
-              name:
-                description: Name is the part of pod name
-                type: string
               replicas:
                 description: Replicas define the number of replicas
                 format: int32
@@ -135,9 +129,11 @@ spec:
                     description: StorageClassName of persistance volumn
                     type: string
                 type: object
+              version:
+                description: Version define the used Redis docker image tag
+                type: string
             required:
-            - image
-            - name
+            - version
             type: object
           status:
             description: RedisStatus defines the observed state of Redis
