@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	databasesv1 "github.com/qfzack/redis-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -52,8 +53,8 @@ func (r *RedisReconciler) reconcileStandalone(ctx context.Context, redis *databa
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  redis.Spec.Name,
-							Image: redis.Spec.Image,
+							Name:  redis.Name,
+							Image: fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: RedisPort,

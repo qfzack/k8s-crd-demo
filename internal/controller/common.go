@@ -20,12 +20,8 @@ import (
 )
 
 const (
-	RedisPort         = int32(6379)
-	RedisSentinelPort = int32(26379)
-
-	clusterInitScript            = "cluster-init.sh"
-	sentinelInitScript           = "sentinel-init.sh"
-	clusterInitializedAnnotation = "redis.database.example.com/cluster-initialized"
+	RedisImage = "bitnami/redis:%s"
+	RedisPort  = int32(6379)
 )
 
 func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *databasesv1.Redis, err error) (ctrl.Result, error) {
@@ -310,8 +306,8 @@ func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *data
 							Spec: corev1.PodSpec{
 								Containers: []corev1.Container{
 									{
-										Name:  fmt.Sprintf("%s-backup", redis.Spec.Name),
-										Image: redis.Spec.Image,
+										Name:  fmt.Sprintf("%s-backup", redis.Name),
+										Image: fmt.Sprintf(RedisImage, redis.Spec.Version),
 										Command: []string{
 											"redis-cli",
 											"SAVE",
@@ -335,12 +331,7 @@ func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *data
 
 func (r *RedisReconciler) updateStatus(ctx context.Context, redis *databasesv1.Redis) (ctrl.Result, error) {
 	sts := &appsv1.StatefulSet{}
-	// TODO sentinel mode redis name is redis-master, redis-replica and redis-sentinel
-	redisName := redis.Name
-	if redis.Spec.Mode == "sentinel" {
-		redisName = fmt.Sprintf("%s-master", redis.Name)
-	}
-	if err := r.Get(ctx, types.NamespacedName{Name: redisName, Namespace: redis.Namespace}, sts); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: redis.Name, Namespace: redis.Namespace}, sts); err != nil {
 		return ctrl.Result{}, err
 	}
 

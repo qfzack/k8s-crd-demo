@@ -6,7 +6,7 @@ echo "Waiting for all Redis nodes to be ready..."
 WAIT_TIMEOUT=60
 START_TIME=$(date +%s)
 for i in $(seq 0 $((REPLICAS-1))); do
-    node="${HOSTNAME%%-*}-master-$i.${HOSTNAME%%-*}-master"
+    node="${HOSTNAME%%-*}-$i.${HOSTNAME%%-*}"
     while true; do
         CURRENT_TIME=$(date +%s)
         ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
@@ -30,12 +30,12 @@ done
 # initialize redis master-slave
 echo "Creating Redis master-slave..."
 # TODO set first pod as master
-MASTER_POD="redis-master-0.redis-master"
+MASTER_POD="redis-0.redis"
 echo "Using $MASTER_POD as master"
 
 # set replicas
 for i in $(seq 1 $((REPLICAS-1))); do
-    REPLICA_POD="redis-master-$i.redis-master"
+    REPLICA_POD="redis-$i.redis"
     echo "Configuring $REPLICA_POD as replica of $MASTER_POD"
     redis-cli -h "$REPLICA_POD" replicaof "$MASTER_POD" "$REDIS_PORT"
 done

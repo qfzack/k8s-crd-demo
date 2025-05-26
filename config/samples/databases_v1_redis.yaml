@@ -6,10 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: redis
 spec:
-  name: redis
-  image: bitnami/redis:7.0.0
-  replicas: 3
-  mode: sentinel
+  version: 7.0.0
+  replicas: 6
+  mode: cluster
   resource:
     requests:
       cpu: 100m

@@ -18,15 +18,20 @@ import (
 )
 
 const (
-	RedisConfKey    = "redis.conf"
-	SentinelConfKey = "sentinel.conf"
+	redisMasterPod     = "redis"
+	redisMasterService = "redis"
+
+	redisSentinel     = "%s-sentinel"
+	RedisSentinelPort = int32(26379)
+
+	sentinelInitScript = "sentinel-init.sh"
 )
 
 func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *databasesv1.Redis) error {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "REDIS_MASTER_HOST",
-			Value: "redis-master-0.redis-master",
+			Value: fmt.Sprintf("%s-0.%s", redisMasterPod, redisMasterService),
 		},
 		{
 			Name: "POD_IP",
@@ -52,7 +57,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 	// master statefulset configuration
 	masterSts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-master", redis.Name),
+			Name:      redis.Name,
 			Namespace: redis.Namespace,
 			Labels: map[string]string{
 				"app":  redis.Name,
@@ -63,15 +68,15 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 			Replicas: &redis.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":  redis.Name,
+					"app":  redisMasterPod,
 					"role": "master",
 				},
 			},
-			ServiceName: fmt.Sprintf("%s-master", redis.Name),
+			ServiceName: redisMasterService,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":  redis.Name,
+						"app":  redisMasterPod,
 						"role": "master",
 					},
 				},
@@ -79,7 +84,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 					InitContainers: []corev1.Container{
 						{
 							Name:    "redis-init",
-							Image:   redis.Spec.Image,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"sh", "-c"},
 							Args:    []string{"chown -R 1001:1001 /data"},
 							SecurityContext: &corev1.SecurityContext{
@@ -87,7 +92,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      fmt.Sprintf("%s-master", redis.Name),
+									Name:      redis.Name,
 									MountPath: "/data",
 								},
 							},
@@ -95,8 +100,8 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 					},
 					Containers: []corev1.Container{
 						{
-							Name:    redis.Spec.Name,
-							Image:   redis.Spec.Image,
+							Name:    redis.Name,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"redis-server"},
 							Args: []string{
 								"--dir", "/data",
@@ -112,7 +117,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      fmt.Sprintf("%s-master", redis.Name),
+									Name:      redis.Name,
 									MountPath: "/data",
 								},
 							},
@@ -126,7 +131,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 	// sentinel deployment configuration
 	sentinelDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-sentinel", redis.Name),
+			Name:      fmt.Sprintf(redisSentinel, redis.Name),
 			Namespace: redis.Namespace,
 			Labels: map[string]string{
 				"app":  redis.Name,
@@ -151,8 +156,8 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
-							Name:    "redis-init",
-							Image:   redis.Spec.Image,
+							Name:    "redis-sentinel-init",
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"sh", "-c"},
 							Args: []string{
 								`
@@ -170,7 +175,7 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      fmt.Sprintf("%s-sentinel", redis.Name),
+									Name:      fmt.Sprintf(redisSentinel, redis.Name),
 									MountPath: "/data",
 								},
 							},
@@ -178,20 +183,17 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 					},
 					Containers: []corev1.Container{
 						{
-							Name:    "sentinel",
-							Image:   redis.Spec.Image,
+							Name:    fmt.Sprintf(redisSentinel, redis.Name),
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"redis-server"},
 							Args:    []string{"/data/sentinel.conf", "--sentinel"},
 							Ports: []corev1.ContainerPort{
 								{ContainerPort: RedisSentinelPort},
 							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: pointer.Int64(0),
-							},
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      fmt.Sprintf("%s-sentinel", redis.Name),
+									Name:      fmt.Sprintf(redisSentinel, redis.Name),
 									MountPath: "/data",
 								},
 							},
@@ -199,7 +201,7 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: fmt.Sprintf("%s-sentinel", redis.Name),
+							Name: fmt.Sprintf(redisSentinel, redis.Name),
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
@@ -215,7 +217,7 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 		masterSts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("%s-master", redis.Name),
+					Name: redis.Name,
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -233,7 +235,7 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 	} else {
 		masterSts.Spec.Template.Spec.Volumes = []corev1.Volume{
 			{
-				Name: fmt.Sprintf("%s-master", redis.Name),
+				Name: redis.Name,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -268,7 +270,7 @@ func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databas
 	// Master Service
 	masterSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-master", redis.Name),
+			Name:      redisMasterService,
 			Namespace: redis.Namespace,
 			Labels: map[string]string{
 				"app":  redis.Name,
@@ -277,15 +279,15 @@ func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databas
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None", // Headless Service
+			Selector: map[string]string{
+				"app":  redisMasterPod,
+				"role": "master",
+			},
 			Ports: []corev1.ServicePort{
 				{
-					Name: "redis",
+					Name: "redis-port",
 					Port: RedisPort,
 				},
-			},
-			Selector: map[string]string{
-				"app":  redis.Name,
-				"role": "master",
 			},
 		},
 	}
@@ -293,7 +295,7 @@ func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databas
 	// Sentinel Service
 	sentinelSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-sentinel", redis.Name),
+			Name:      fmt.Sprintf(redisSentinel, redis.Name),
 			Namespace: redis.Namespace,
 			Labels: map[string]string{
 				"app":  redis.Name,
@@ -307,7 +309,7 @@ func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databas
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name: "sentinel",
+					Name: "redis-sentinel-port",
 					Port: RedisSentinelPort,
 				},
 			},
@@ -366,7 +368,7 @@ func (r *RedisReconciler) createSentinelManagerJob(ctx context.Context, redis *d
 					Containers: []corev1.Container{
 						{
 							Name:    "sentinel-manager",
-							Image:   redis.Spec.Image,
+							Image:   fmt.Sprintf(RedisImage, redis.Spec.Version),
 							Command: []string{"/scripts/sentinel-init.sh"},
 							Env: []corev1.EnvVar{
 								{
