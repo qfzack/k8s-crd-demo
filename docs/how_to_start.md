@@ -85,6 +85,21 @@ And then need operator to monitor our configuration changes, and we can achieve 
 make run
 ```
 
+**5.Build redis manager image**
+
+Build redis manager image with dockerfile and push to docker hub:
+
+```shell
+docker build -t zhangqf29/redis-manager:<tag> .
+docker push zhangqf29/redis-manager:<tag>
+```
+
+Run as redis operator in local:
+
+```shell
+docker run -v ~/.kube/config:/.kube/config -e KUBECONFIG=/.kube/config zhangqf29/redis-manager:<tag>
+```
+
 ## Configure monitoring
 
 [prometheus config](../config/prometheus/) is used to configure the Prometheus monitoring, which is a resource of type CRD `ServiceMonitor`, so it neccessary to install this CRD before use monitoring:

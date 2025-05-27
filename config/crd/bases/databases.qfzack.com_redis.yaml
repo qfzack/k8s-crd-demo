@@ -123,10 +123,10 @@ spec:
                     - ReadWriteMany
                     type: string
                   storage:
-                    description: Storage defines the size of persistance volumn
+                    description: Storage defines the size of persistence volumn
                     type: string
                   storageClassName:
-                    description: StorageClassName of persistance volumn
+                    description: StorageClassName of persistence volumn
                     type: string
                 type: object
               version:

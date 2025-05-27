@@ -14,7 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 	redisMasterService = "redis"
 
 	redisSentinel     = "%s-sentinel"
-	RedisSentinelPort = int32(26379)
+	redisSentinelPort = int32(26379)
 
 	sentinelInitScript = "sentinel-init.sh"
 )
@@ -88,7 +88,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 							Command: []string{"sh", "-c"},
 							Args:    []string{"chown -R 1001:1001 /data"},
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: pointer.Int64(0),
+								RunAsUser: ptr.To(int64(0)),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -139,7 +139,7 @@ func (r *RedisReconciler) reconcileSentinel(ctx context.Context, redis *database
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32(3),
+			Replicas: ptr.To(int32(3)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":  redis.Name,
@@ -188,7 +188,7 @@ sentinel parallel-syncs mymaster 1\n" > /data/sentinel.conf
 							Command: []string{"redis-server"},
 							Args:    []string{"/data/sentinel.conf", "--sentinel"},
 							Ports: []corev1.ContainerPort{
-								{ContainerPort: RedisSentinelPort},
+								{ContainerPort: redisSentinelPort},
 							},
 							Env: envs,
 							VolumeMounts: []corev1.VolumeMount{
@@ -310,7 +310,7 @@ func (r *RedisReconciler) createSentinelSvcs(ctx context.Context, redis *databas
 			Ports: []corev1.ServicePort{
 				{
 					Name: "redis-sentinel-port",
-					Port: RedisSentinelPort,
+					Port: redisSentinelPort,
 				},
 			},
 		},
@@ -330,7 +330,7 @@ func (r *RedisReconciler) createSentinelConfigMap(ctx context.Context, redis *da
 	_, filename, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(filename)
 	scriptPath := filepath.Join(baseDir, "..", "resource", sentinelInitScript)
-	script, err := os.ReadFile(scriptPath)
+	script, err := os.ReadFile(scriptPath) //nolint:gosec
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func (r *RedisReconciler) createSentinelManagerJob(ctx context.Context, redis *d
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: fmt.Sprintf("%s-init-script", redis.Name),
 									},
-									DefaultMode: pointer.Int32(0755),
+									DefaultMode: ptr.To(int32(0755)),
 								},
 							},
 						},

@@ -20,10 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	databasesv1 "github.com/qfzack/redis-operator/api/v1"
-
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	databasesv1 "github.com/qfzack/redis-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -72,7 +71,7 @@ func (r *RedisReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// 1.Try to get existed Redis CRD instance from k8s cluster
 	redisConfig := &databasesv1.Redis{}
-	r.Logger.Info("Fetch CRD instance", "Name", req.NamespacedName.Name)
+	r.Logger.Info("Fetch CRD instance", "Name", req.Name)
 	if err := r.Get(ctx, req.NamespacedName, redisConfig); err != nil {
 		r.Logger.Error(err, "Failed to fetch CRD instance")
 		return ctrl.Result{}, err
