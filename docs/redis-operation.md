@@ -20,7 +20,7 @@ b0c041bb1a8eb9eebee95630eea9b312aaabc9f5 10.1.1.106:6379@16379 slave 944d64745d8
 ```
 
 ```shell
-:/$ redis-cli cluster info 
+:/$ redis-cli cluster info
 cluster_state:ok
 cluster_slots_assigned:16384
 cluster_slots_ok:16384

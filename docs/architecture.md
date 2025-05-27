@@ -65,7 +65,7 @@ k8s-crd-demo/
 - sentinel monitoring mechanism
 - use statfulSet ensure stable pod network identification
 
-### Data Persistance
+### Data persistence
 
 - support AOF and RDB
 - PVC persistent storage
@@ -100,5 +100,5 @@ k8s-crd-demo/
 - CRD + K8s Controller (resource management)
 - StatefulSet (Redis cluster management)
 - ConfigMap & Secret (for configuration management)
-- PVC (data persistance)
+- PVC (data persistence)
 - RBAC (permission management)

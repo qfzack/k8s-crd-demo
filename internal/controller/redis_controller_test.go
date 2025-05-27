@@ -21,13 +21,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	databasesv1 "github.com/qfzack/redis-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	databasesv1 "github.com/qfzack/redis-operator/api/v1"
 )
 
 var _ = Describe("Redis Controller", func() {
