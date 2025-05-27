@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,7 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -66,7 +65,7 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 							Command: []string{"sh", "-c"},
 							Args:    []string{"chown -R 1001:1001 /data"},
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: pointer.Int64(0),
+								RunAsUser: ptr.To(int64(0)),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -110,9 +109,7 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 	}
 
 	// apply storage configuration if specified
-	usedPV := false
 	if redis.Spec.Storage.Storage != "" {
-		usedPV = true
 		sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +140,7 @@ func (r *RedisReconciler) reconcileCluster(ctx context.Context, redis *databases
 	}
 
 	// create cronjob for redis cluster configuring
-	if err := r.createClusterManagerJob(ctx, redis, clusterReplicas, usedPV); err != nil {
+	if err := r.createClusterManagerJob(ctx, redis, clusterReplicas); err != nil {
 		r.Logger.Error(err, "Failed to create or update services")
 		return err
 	}
@@ -165,9 +162,9 @@ func (r *RedisReconciler) createConfigMap(ctx context.Context, redis *databasesv
 	_, filename, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(filename)
 	scriptPath := filepath.Join(baseDir, "..", "resource", clusterInitScript)
-	script, err := os.ReadFile(scriptPath)
+	script, err := os.ReadFile(scriptPath) //nolint:gosec
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read script file %q: %w", scriptPath, err)
 	}
 
 	cm := &corev1.ConfigMap{
@@ -182,7 +179,7 @@ func (r *RedisReconciler) createConfigMap(ctx context.Context, redis *databasesv
 	return r.createOrUpdate(ctx, cm)
 }
 
-func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *databasesv1.Redis, replicas int, usedPV bool) error {
+func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *databasesv1.Redis, replicas int) error {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-cluster-manager", redis.Name),
@@ -235,7 +232,7 @@ func (r *RedisReconciler) createClusterManagerJob(ctx context.Context, redis *da
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: fmt.Sprintf("%s-init-script", redis.Name),
 									},
-									DefaultMode: pointer.Int32(0755),
+									DefaultMode: ptr.To(int32(0755)),
 								},
 							},
 						},

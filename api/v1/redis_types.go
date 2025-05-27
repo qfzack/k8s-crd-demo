@@ -25,7 +25,7 @@ import (
 // SecuritySpec defines the security configuration
 type SecuritySpec struct {
 	// TLS configuration
-	EnableTLS bool `json:"enableTLS,omitempty"`
+	EnableTls bool `json:"enableTLS,omitempty"`
 	// ServiceAccount name
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
@@ -67,9 +67,9 @@ type StorageSpec struct {
 	// Specify the access mode for the persistent volume
 	// +kubebuilder:validation:Enum=ReadWriteOnce;ReadOnlyMany;ReadWriteMany
 	AccessMode string `json:"accessMode,omitempty"`
-	// Storage defines the size of persistance volumn
+	// Storage defines the size of persistence volumn
 	Storage string `json:"storage,omitempty"`
-	// StorageClassName of persistance volumn
+	// StorageClassName of persistence volumn
 	StorageClassName string `json:"storageClassName,omitempty"`
 }
 

@@ -1,104 +1,171 @@
-# k8s-crd-demo
-Kubernetes CRD practice project built with [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder), and the project build steps are documented in [kubebuilder_tuition](./docs/kubebuilder_tuition.md).
+# Redis Operator
 
-## Description
-This project can be deployed to k8s as an redis operator with the main features:
-- Create highly available redis clusters
-- Scaling the number of replicas
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![Go Report Card](https://goreportcard.com/badge/github.com/qfzack/redis-operator)](https://goreportcard.com/report/github.com/qfzack/redis-operator)
 
-## Getting Started
+Redis Operator 是一个基于 Kubernetes 的运维工具，用于自动化部署和管理 Redis 集群。本项目使用 [Kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) 构建。
 
-### Prerequisites
-- go version v1.22.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## 功能特性
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+- 自动部署高可用的 Redis 集群
+- 支持 Redis 主从复制模式
+- 支持 Redis Sentinel 哨兵模式
+- 支持动态扩缩容
+- 自动故障转移
+- 持久化存储支持
 
-```sh
-make docker-build docker-push IMG=<some-registry>/k8s-crd-demo:tag
+## 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Kubernetes Cluster                             │
+│                                                                         │
+│  ┌─────────────────┐          ┌──────────────────┐                      │
+│  │  Redis Operator │          │   Redis CRD      │                      │
+│  │   Controller    │◄────────►│   Definition     │                      │
+│  └────────┬────────┘          └──────────────────┘                      │
+│           │                                                             │
+│           │                    Reconcile                                │
+│           ▼                                                             │
+│  ┌─────────────────┐          ┌──────────────────┐                      │
+│  │  Redis Master   │          │  Redis Replica   │                      │
+│  │  StatefulSet    │◄────────►│   StatefulSet    │                      │
+│  └────────┬────────┘          └──────────┬───────┘                      │
+│           │                              │                              │
+│           │         ┌──────────────────┐ │                              │
+│           └────────►│ Redis Sentinel   │◄┘                              │
+│                    │   Deployment      │                                │
+│                    └─────────┬───────·─-┘                                │
+│                              │                                          │
+│                    ┌─────────▼────────┐                                 │
+│                    │  Service (HA)    │                                 │
+│                    └──────────────────┘                                 │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+Redis Operator 通过以下组件实现 Redis 集群的自动化管理：
 
-**Install the CRDs into the cluster:**
+- **Custom Resource Definition (CRD)**: 定义 Redis 集群的规格
+- **Controller**: 监控集群状态并确保与期望状态一致
+- **Redis StatefulSet**: 管理 Redis 主从节点
+- **Redis Sentinel**: 提供高可用和自动故障转移
 
-```sh
-make install
+## 快速开始
+
+### 前置条件
+
+- Kubernetes 1.32+
+- Helm 3.0+ (可选，用于 Helm 安装方式)
+- Kubectl 1.23+
+
+### 安装
+
+#### 方式一：使用 kubectl
+
+```bash
+# 安装 CRD 和 Operator
+kubectl apply -f https://raw.githubusercontent.com/qfzack/redis-operator/main/deploy/install.yaml
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+#### 方式二：使用 Helm
 
-```sh
-make deploy IMG=<some-registry>/k8s-crd-demo:tag
+```bash
+helm repo add redis-operator https://qfzack.github.io/redis-operator
+helm install redis-operator redis-operator/redis-operator
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+### 部署 Redis 集群
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+创建一个简单的 Redis 集群：
 
-```sh
-kubectl apply -k config/samples/
+```yaml
+apiVersion: databases.qfzack.com/v1
+kind: Redis
+metadata:
+  name: redis-sample
+spec:
+  replicas: 3
+  mode: sentinel
+  version: "6.2"
+  persistentVolume:
+    size: 1Gi
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+应用配置：
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+```bash
+kubectl apply -f config/samples/redis-sentinel.yaml
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+### 验证部署
 
-```sh
-make uninstall
+检查 Redis 集群状态：
+
+```bash
+kubectl get redis
+kubectl get pods -l app=redis-sample
 ```
 
-**UnDeploy the controller from the cluster:**
+## 配置参考
 
-```sh
-make undeploy
+### Redis CR 规格
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `spec.replicas` | Redis 副本数量 | 3 |
+| `spec.mode` | 运行模式 (sentinel/cluster) | sentinel |
+| `spec.version` | Redis 版本 | 6.2 |
+| `spec.persistentVolume.size` | 存储大小 | 1Gi |
+
+完整配置示例请参考 [配置文档](docs/configuration.md)。
+
+## 开发指南
+
+### 构建要求
+
+- Go 1.22+
+- Docker 17.03+
+- Operator SDK v1.28.0+
+
+### 本地开发
+
+```bash
+# 克隆仓库
+git clone https://github.com/qfzack/redis-operator.git
+
+# 安装依赖
+make deps
+
+# 运行测试
+make test
+
+# 构建镜像
+make docker-build IMG=<your-registry>/redis-operator:tag
 ```
 
-## Project Distribution
+详细的开发指南请参考 [开发文档](docs/development.md)。
 
-Following are the steps to build the installer and distribute this project to users.
+## 路线图
 
-1. Build the installer for the image built and published in the registry:
+- [ ] 支持 Redis Cluster 模式
+- [ ] 自动备份与恢复
+- [ ] 监控集成
+- [ ] 升级策略优化
 
-```sh
-make build-installer IMG=<some-registry>/k8s-crd-demo:tag
-```
+## 故障排除
 
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
+常见问题及解决方案请参考 [故障排除指南](docs/troubleshooting.md)。
 
-2. Using the installer
+## 贡献指南
 
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
+欢迎提交 Issue 和 Pull Request！详情请参考 [贡献指南](CONTRIBUTING.md)。
 
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/k8s-crd-demo/<tag or branch>/dist/install.yaml
-```
+## 社区
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+- [Slack Channel](https://kubernetes.slack.com/messages/redis-operator)
+- [邮件列表](https://groups.google.com/forum/#!forum/redis-operator)
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
+## 许可证
 
 Copyright 2024.
 
@@ -107,10 +174,3 @@ you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-

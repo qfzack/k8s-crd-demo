@@ -15,13 +15,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
+	// RedisImage define the redis image name
 	RedisImage = "bitnami/redis:%s"
-	RedisPort  = int32(6379)
+	// RedisPort define the default redis service port
+	RedisPort = int32(6379)
 )
 
 func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *databasesv1.Redis, err error) (ctrl.Result, error) {
@@ -35,7 +36,7 @@ func (r *RedisReconciler) updateStatusWithError(ctx context.Context, redis *data
 	})
 
 	if updateErr := r.Status().Update(ctx, redis); updateErr != nil {
-		return ctrl.Result{}, fmt.Errorf("original error: %v, status update error: %v", err, updateErr)
+		return ctrl.Result{}, fmt.Errorf("original error: %w, status update error: %v", err, updateErr)
 	}
 	return ctrl.Result{}, nil
 }
@@ -190,7 +191,7 @@ func (r *RedisReconciler) createOrUpdateServices(ctx context.Context, svc *corev
 
 	// immutable fields
 	svc.Spec.ClusterIP = existing.Spec.ClusterIP
-	svc.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
+	svc.ResourceVersion = existing.ResourceVersion
 
 	// update service fields
 	existing.Spec.Ports = svc.Spec.Ports
@@ -256,7 +257,7 @@ func (r *RedisReconciler) waitForDeletion(ctx context.Context, obj client.Object
 }
 
 func (r *RedisReconciler) reconcileCommonConfig(ctx context.Context, redis *databasesv1.Redis) error {
-	if redis.Spec.Security.EnableTLS {
+	if redis.Spec.Security.EnableTls { //nolint:staticcheck
 		// TODO: Implement TLS configuration
 		// Create secrets for TLS certificates
 		// Mount certificates to pods
@@ -365,7 +366,7 @@ func (r *RedisReconciler) createServices(ctx context.Context, redis *databasesv1
 				},
 				{
 					Name:     "cluster",
-					Port:     RedisPort + 10000, // cluster bus port
+					Port:     RedisPort + 10000,
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
