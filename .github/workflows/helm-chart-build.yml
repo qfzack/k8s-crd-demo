@@ -6,9 +6,9 @@ on:
       - '*'
     branches:
       - redis-operator
-    # paths:
-    #   - config/**
-    #   - .github/workflows/helm-chart-build.yml
+
+permissions:
+  contents: write
 
 jobs:
   build-and-push:
@@ -17,29 +17,21 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Install kustomize
-      run: |
-        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-        sudo mv kustomize /usr/local/bin/
-
-    - name: Install helmify
-      run: |
-        curl -LO https://github.com/arttor/helmify/releases/latest/download/helmify_Linux_x86_64.tar.gz
-        tar -zxvf helmify_Linux_x86_64.tar.gz
-        chmod +x helmify
-        sudo mv helmify /usr/local/bin/
+      with:
+        fetch-depth: 0
 
     - name: Set up Helm
       uses: azure/setup-helm@v3
 
-    # - name: Build Helm chart
-    #   run: |
-    #     kustomize build config/default | helmify charts/redis-operator
+    - name: Configure Git
+      run: |
+        git config user.name "qingfeng_zhang"
+        git config user.email "zhangqf829@gmail.com"
 
     - name: Run chart-releaser
       uses: helm/chart-releaser-action@v1.7.0
       with:
         charts_dir: charts
+        skip_existing: true
       env:
         CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
