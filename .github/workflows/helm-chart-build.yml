@@ -6,9 +6,9 @@ on:
       - '*'
     branches:
       - redis-operator
-    # paths:
-    #   - config/**
-    #   - .github/workflows/helm-chart-build.yml
+
+permissions:
+  contents: write
 
 jobs:
   build-and-push:
@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Install kustomize
       run: |
@@ -36,6 +38,11 @@ jobs:
     # - name: Build Helm chart
     #   run: |
     #     kustomize build config/default | helmify charts/redis-operator
+
+    - name: Configure Git
+      run: |
+        git config user.name "qingfeng_zhang"
+        git config user.email "zhangqf829@gmail.com"
 
     - name: Run chart-releaser
       uses: helm/chart-releaser-action@v1.7.0
