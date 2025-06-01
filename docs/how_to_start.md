@@ -122,3 +122,11 @@ check ServiceMonitor CR status with:
 kubectl get crd
 kubectl get servicemonitors.monitoring.coreos.com -n monitoring
 ```
+
+## Update Helm Chart
+
+use kustomize and helmify to update configs to helm chart.
+
+```shell
+kustomize build config/default | helmify charts/redis-operator
+```
