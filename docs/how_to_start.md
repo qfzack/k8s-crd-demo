@@ -122,3 +122,25 @@ check ServiceMonitor CR status with:
 kubectl get crd
 kubectl get servicemonitors.monitoring.coreos.com -n monitoring
 ```
+
+## Update Helm Chart
+
+install kustomize and helmify:
+
+```shell
+curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+sudo mv kustomize /usr/local/bin/
+
+curl -LO https://github.com/arttor/helmify/releases/latest/download/helmify_Linux_x86_64.tar.gz
+tar -zxvf helmify_Linux_x86_64.tar.gz
+chmod +x helmify
+sudo mv helmify /usr/local/bin/
+```
+
+use kustomize and helmify to update configs to helm chart.
+
+```shell
+kustomize build config/default | helmify charts/redis-operator
+```
+
+and modify the Chart.yaml to update helm chart version, it will create a new tag `redis-operator-<version>` in workflow and upload helm chart to `gh-pages` branch.

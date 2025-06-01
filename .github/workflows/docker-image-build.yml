@@ -2,6 +2,8 @@ name: Build and Push Docker Image
 
 on:
   push:
+    branches:
+      - redis-operator
     tags:
       - '*'
 
@@ -26,10 +28,20 @@ jobs:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker image
+    - name: Build Docker for tag
+      if: startsWith(github.ref, 'refs/tags/')
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
         push: true
         tags: zhangqf29/redis-manager:${{ github.ref_name }}
+
+    - name: Build Docker for push
+      if: startsWith(github.ref, 'refs/heads/')
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: zhangqf29/redis-manager:test
