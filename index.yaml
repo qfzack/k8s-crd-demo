@@ -11,4 +11,14 @@ entries:
     urls:
     - https://github.com/qfzack/redis-operator/releases/download/redis-operator-0.1.1/redis-operator-0.1.1.tgz
     version: 0.1.1
-generated: "2025-06-01T11:25:05.39759447Z"
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2025-06-01T11:42:47.881031855Z"
+    description: A Helm chart for Kubernetes
+    digest: d95222fd9fac1600304bd5b4273a90a15944b2f95704699a586daac76a99bd22
+    name: redis-operator
+    type: application
+    urls:
+    - https://github.com/qfzack/redis-operator/releases/download/redis-operator-0.1.0/redis-operator-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-06-01T11:42:47.88104Z"
