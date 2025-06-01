@@ -79,7 +79,7 @@ type RedisSpec struct {
 	// +required
 	Version string `json:"version,omitempty"`
 	// Replicas define the number of replicas
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	Replicas int32 `json:"replicas,omitempty"`
 
 	// Mode represents the mode of Redis (standalone, sentinel, cluster)

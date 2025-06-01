@@ -2,7 +2,7 @@ apiVersion: databases.qfzack.com/v1
 kind: Redis
 metadata:
   labels:
-    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/name: redis-operator
     app.kubernetes.io/managed-by: kustomize
   name: redis
 spec:

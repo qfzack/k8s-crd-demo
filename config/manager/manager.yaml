@@ -3,18 +3,18 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/name: redis-operator
     app.kubernetes.io/managed-by: kustomize
-  name: redis-test
+  name: redis
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
-  namespace: redis-test
+  namespace: redis
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: k8s-crd-demo
+    app.kubernetes.io/name: redis-operator
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:

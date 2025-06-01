@@ -18,7 +18,7 @@ cd <project-name>
 go mod init <module-name>
 ```
 
-Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/477e045e7ddd246ecc2ade5c149a1d98c60201cc).
+Code changes refer to [commit](https://github.com/qfzack/redis-operator/commit/477e045e7ddd246ecc2ade5c149a1d98c60201cc).
 
 **2.Init project with Kubebuilder**
 
@@ -26,7 +26,7 @@ Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/477
 kubebuilder init --domain <domain-name>
 ```
 
-Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/337aa140b0bb76bb56828163e894b5927a3c8b77).
+Code changes refer to [commit](https://github.com/qfzack/redis-operator/commit/337aa140b0bb76bb56828163e894b5927a3c8b77).
 
 > eg: `kubebuilder init --domain qfzack.com`
 
@@ -36,7 +36,7 @@ Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/337
 kubebuilder create api --group <group-name> --version <version-name> --kind <kind-name>
 ```
 
-Code changes refer to [commit](https://github.com/qfzack/k8s-crd-demo/commit/e724fffea79fd5379099507f3ec1fc164a7ffffe).
+Code changes refer to [commit](https://github.com/qfzack/redis-operator/commit/e724fffea79fd5379099507f3ec1fc164a7ffffe).
 
 > eg: `kubebuilder create api --group databases --version v1 --kind Redis`
 

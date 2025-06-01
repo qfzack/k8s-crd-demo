@@ -5,7 +5,7 @@
 domain: qfzack.com
 layout:
 - go.kubebuilder.io/v4
-projectName: k8s-crd-demo
+projectName: redis-operator
 repo: github.com/qfzack/redis-operator
 resources:
 - api:

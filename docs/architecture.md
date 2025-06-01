@@ -23,9 +23,8 @@ bitnami/redis is a Redis image provided and maintained by [Bitnami Library](http
 
 ## 3.Project Structure
 
-
 ```tree
-k8s-crd-demo/
+redis-operator/
 ├── api/                    # API definitions (CRD specs)
 │   └── v1/                 # API version
 │       ├── redis_types.go  # CRD type definitions

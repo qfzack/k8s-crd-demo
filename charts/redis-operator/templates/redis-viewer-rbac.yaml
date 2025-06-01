@@ -1,23 +1,17 @@
-# permissions for end users to edit redis.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: {{ include "redis-operator.fullname" . }}-redis-viewer-role
   labels:
-    app.kubernetes.io/name: redis-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: redis-editor-role
+  {{- include "redis-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - databases.qfzack.com
   resources:
   - redis
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - databases.qfzack.com
