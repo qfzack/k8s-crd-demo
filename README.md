@@ -1,171 +1,135 @@
 # Redis Operator
 
-[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![Docker Image](https://github.com/qfzack/redis-operator/actions/workflows/docker-image-build.yml/badge.svg?branch=redis-operator)](https://github.com/qfzack/redis-operator/actions/workflows/docker-image-build.yml)
+[![Helm Chart](https://github.com/qfzack/redis-operator/actions/workflows/helm-chart-build.yml/badge.svg?branch=redis-operator)](https://github.com/qfzack/redis-operator/actions/workflows/helm-chart-build.yml)
+[![Lint](https://github.com/qfzack/redis-operator/actions/workflows/golangci-lint.yml/badge.svg?branch=redis-operator)](https://github.com/qfzack/redis-operator/actions/workflows/golangci-lint.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/qfzack/redis-operator)](https://goreportcard.com/report/github.com/qfzack/redis-operator)
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-Redis Operator 是一个基于 Kubernetes 的运维工具，用于自动化部署和管理 Redis 集群。本项目使用 [Kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) 构建。
+Redis Operator is a Kubernetes operator built with [Kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) that automates the deployment, scaling, and management of Redis instances in Kubernetes clusters.
 
-## 功能特性
+## Features
 
-- 自动部署高可用的 Redis 集群
-- 支持 Redis 主从复制模式
-- 支持 Redis Sentinel 哨兵模式
-- 支持动态扩缩容
-- 自动故障转移
-- 持久化存储支持
+- Automated deployment and management of Redis instances
+- Multiple deployment modes:
+  - Standalone: Single Redis instance
+  - Sentinel: High availability with master-slave replication
+  - Cluster: Sharded cluster with automatic failover
+- Dynamic scaling capabilities
+- Automated backup and recovery
+- Monitoring integration with Prometheus
+- Persistent storage support
+- Automated failover and high availability
+- Configuration management via CRD
 
-## 架构设计
+## Getting Started
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          Kubernetes Cluster                             │
-│                                                                         │
-│  ┌─────────────────┐          ┌──────────────────┐                      │
-│  │  Redis Operator │          │   Redis CRD      │                      │
-│  │   Controller    │◄────────►│   Definition     │                      │
-│  └────────┬────────┘          └──────────────────┘                      │
-│           │                                                             │
-│           │                    Reconcile                                │
-│           ▼                                                             │
-│  ┌─────────────────┐          ┌──────────────────┐                      │
-│  │  Redis Master   │          │  Redis Replica   │                      │
-│  │  StatefulSet    │◄────────►│   StatefulSet    │                      │
-│  └────────┬────────┘          └──────────┬───────┘                      │
-│           │                              │                              │
-│           │         ┌──────────────────┐ │                              │
-│           └────────►│ Redis Sentinel   │◄┘                              │
-│                    │   Deployment      │                                │
-│                    └─────────┬───────·─-┘                                │
-│                              │                                          │
-│                    ┌─────────▼────────┐                                 │
-│                    │  Service (HA)    │                                 │
-│                    └──────────────────┘                                 │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+### Prerequisites
 
-Redis Operator 通过以下组件实现 Redis 集群的自动化管理：
+- Kubernetes >= 1.20
+- Helm >= 3.0 (optional)
+- Kubectl >= 1.20
 
-- **Custom Resource Definition (CRD)**: 定义 Redis 集群的规格
-- **Controller**: 监控集群状态并确保与期望状态一致
-- **Redis StatefulSet**: 管理 Redis 主从节点
-- **Redis Sentinel**: 提供高可用和自动故障转移
+### Installation
 
-## 快速开始
-
-### 前置条件
-
-- Kubernetes 1.32+
-- Helm 3.0+ (可选，用于 Helm 安装方式)
-- Kubectl 1.23+
-
-### 安装
-
-#### 方式一：使用 kubectl
+#### Using Helm (Recommended)
 
 ```bash
-# 安装 CRD 和 Operator
-kubectl apply -f https://raw.githubusercontent.com/qfzack/redis-operator/main/deploy/install.yaml
-```
-
-#### 方式二：使用 Helm
-
-```bash
+# Add Helm repository
 helm repo add redis-operator https://qfzack.github.io/redis-operator
+helm repo update
+
+# Install Redis Operator
 helm install redis-operator redis-operator/redis-operator
 ```
 
-### 部署 Redis 集群
-
-创建一个简单的 Redis 集群：
-
-```yaml
-apiVersion: databases.qfzack.com/v1
-kind: Redis
-metadata:
-  name: redis-sample
-spec:
-  replicas: 3
-  mode: sentinel
-  version: "6.2"
-  persistentVolume:
-    size: 1Gi
-```
-
-应用配置：
+#### Option 2: Using kubectl
 
 ```bash
-kubectl apply -f config/samples/redis-sentinel.yaml
+kubectl apply -k ./config/default
 ```
 
-### 验证部署
+## Configuration
 
-检查 Redis 集群状态：
+### Redis CR Specification
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `spec.mode` | Redis deployment mode (standalone/sentinel/cluster) | standalone |
+| `spec.version` | Redis version | 7.0.0 |
+| `spec.replicas` | Number of Redis nodes | 3 |
+| `spec.resource.requests.cpu` | CPU request quota | 100m |
+| `spec.resource.requests.memory` | Memory request quota | 128Mi |
+| `spec.resource.limits.cpu` | CPU limit quota | 200m |
+| `spec.resource.limits.memory` | Memory limit quota | 256Mi |
+| `spec.storage.accessMode` | Storage access mode | ReadWriteOnce |
+| `spec.storage.storage` | Storage size | 100Mi |
+| `spec.storage.storageClassName` | Storage class name | standard |
+| `spec.config.REDIS_PASSWORD` | Redis access password | - |
+| `spec.backup.enabled` | Enable backup | false |
+| `spec.backup.schedule` | Backup schedule (Cron expression) | 0 0 * * * |
+| `spec.backup.retention` | Backup retention days | 7 |
+| `spec.security.enableTLS` | Enable TLS | false |
+
+For detailed configuration options, see the [Configuration Guide](docs/configuration.md).
+
+## Documentation
+
+- [Architecture Overview](docs/architecture.md)
+- [User Guide](docs/user-guide.md)
+- [Developer Guide](docs/development.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+## Development
+
+### Requirements
+
+- Go >= 1.20
+- Docker >= 20.10
+- Operator SDK >= 1.28.0
+- Kubebuilder >= 3.0.0
+
+### Local Development
 
 ```bash
-kubectl get redis
-kubectl get pods -l app=redis-sample
-```
-
-## 配置参考
-
-### Redis CR 规格
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `spec.replicas` | Redis 副本数量 | 3 |
-| `spec.mode` | 运行模式 (sentinel/cluster) | sentinel |
-| `spec.version` | Redis 版本 | 6.2 |
-| `spec.persistentVolume.size` | 存储大小 | 1Gi |
-
-完整配置示例请参考 [配置文档](docs/configuration.md)。
-
-## 开发指南
-
-### 构建要求
-
-- Go 1.22+
-- Docker 17.03+
-- Operator SDK v1.28.0+
-
-### 本地开发
-
-```bash
-# 克隆仓库
+# Clone repository
 git clone https://github.com/qfzack/redis-operator.git
+cd redis-operator
 
-# 安装依赖
+# Install dependencies
 make deps
 
-# 运行测试
+# Run tests
 make test
 
-# 构建镜像
-make docker-build IMG=<your-registry>/redis-operator:tag
+# Run operator locally
+make run
 ```
 
-详细的开发指南请参考 [开发文档](docs/development.md)。
+See [Developer Guide](docs/development.md) for detailed instructions.
 
-## 路线图
+## Roadmap
 
-- [ ] 支持 Redis Cluster 模式
-- [ ] 自动备份与恢复
-- [ ] 监控集成
-- [ ] 升级策略优化
+- [x] Basic Redis deployment support
+- [x] Sentinel mode support
+- [x] Cluster mode support
+- [x] Prometheus monitoring
+- [ ] Backup and restore
+- [ ] Automated scaling
+- [ ] Enhanced security features
+- [ ] Cross-cluster deployment
 
-## 故障排除
+## Contributing
 
-常见问题及解决方案请参考 [故障排除指南](docs/troubleshooting.md)。
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests.
 
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request！详情请参考 [贡献指南](CONTRIBUTING.md)。
-
-## 社区
+## Community
 
 - [Slack Channel](https://kubernetes.slack.com/messages/redis-operator)
-- [邮件列表](https://groups.google.com/forum/#!forum/redis-operator)
+- [GitHub Issues](https://github.com/qfzack/redis-operator/issues)
+- [Mailing List](https://groups.google.com/forum/#!forum/redis-operator)
 
-## 许可证
+## License
 
 Copyright 2024.
 
