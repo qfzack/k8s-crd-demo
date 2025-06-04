@@ -1,34 +1,63 @@
 controllerManager:
   manager:
     args:
-    - --metrics-bind-address=:8443
-    - --leader-elect
-    - --health-probe-bind-address=:8081
+      - --metrics-bind-address=:8443
+      - --leader-elect
+      - --health-probe-bind-address=:8081
     containerSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
-        - ALL
+          - ALL
     image:
-      repository: controller
-      tag: latest
+      name: zhangqf29/redis-manager
+      tag: 0.1.0
     resources:
       limits:
         cpu: 500m
-        memory: 128Mi
+        memory: 256Mi
       requests:
-        cpu: 10m
-        memory: 64Mi
+        cpu: 100m
+        memory: 128Mi
   podSecurityContext:
     runAsNonRoot: true
   replicas: 1
   serviceAccount:
     annotations: {}
+
+redis:
+  version: 7.0.0
+  replicas: 1
+  mode: standalone
+  resource:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  # storage:
+  #   accessMode: ReadWriteOnce
+  #   storage: 100Mi
+  #   storageClassName: thin-csi
+  config:
+    ALLOW_EMPTY_PASSWORD: "true"
+    # REDIS_PASSWORD: "Password!"  # TODO set password with secrets
+  # monitor:
+  backup:
+    enabled: true
+    schedule: "0 0 * * *"
+    # retention: 7
+    # retentionPolicy:
+  security:
+    enableTLS: false
+
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
-  - name: https
-    port: 8443
-    protocol: TCP
-    targetPort: 8443
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
   type: ClusterIP
+fullnameOverride: redis

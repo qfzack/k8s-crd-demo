@@ -1,0 +1,39 @@
+apiVersion: databases.qfzack.com/v1
+kind: Redis
+metadata:
+  name: redis
+  labels:
+  {{- include "redis-operator.labels" . | nindent 4 }}
+spec:
+  version: {{ .Values.redis.version }}
+  replicas: {{ .Values.redis.replicas }}
+  mode: {{ .Values.redis.mode }}
+  resource:
+    requests:
+      cpu: {{ .Values.redis.resource.requests.cpu | default "100m" | quote }}
+      memory: {{ .Values.redis.resource.requests.memory | default "128Mi" | quote }}
+    limits:
+      cpu: {{ .Values.redis.resource.limits.cpu | default "200m" | quote }}
+      memory: {{ .Values.redis.resource.limits.memory | default "256Mi" | quote }}
+  {{- if .Values.storage }}
+  storage:
+    accessMode: {{ .Values.redis.storage.accessMode | default "ReadWriteOnce" }}
+    storage: {{ .Values.redis.storage.storage | default "100Mi" | quote  }}
+    storageClassName: {{ .Values.redis.storage.storageClassName }}
+  {{- end }}
+  {{- if .Values.redis.config }}
+  config:
+    {{ toYaml .Values.redis.config | nindent 4 }}
+  {{- end }}
+  {{- if .Values.redis.monitor }}
+  # monitor:
+  {{- end }}
+  {{- if .Values.redis.backup }}
+  backup:
+    enabled: {{ .Values.redis.backup.enabled }}
+    schedule: {{ .Values.redis.backup.schedule }}
+    retention: {{ .Values.redis.backup.retention }}
+    retentionPolicy: {{ .Values.redis.backup.retentionPolicy }}
+  {{- end }}
+  security:
+    enableTLS: {{ .Values.redis.security.enableTLS }}

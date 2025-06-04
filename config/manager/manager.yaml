@@ -58,12 +58,10 @@ spec:
         # seccompProfile:
         #   type: RuntimeDefault
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-        image: controller:latest
+        image: zhangqf29/redis-manager:0.1.0
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -87,9 +85,9 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 128Mi
+            memory: 256Mi
           requests:
-            cpu: 10m
-            memory: 64Mi
+            cpu: 100m
+            memory: 128Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "redis-operator.fullname" . }}-controller-manager
+  name: redis-controller-manager
   labels:
     control-plane: controller-manager
   {{- include "redis-operator.labels" . | nindent 4 }}
@@ -21,12 +21,10 @@ spec:
     spec:
       containers:
       - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
-        command:
-        - /manager
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
+        image: {{ .Values.controllerManager.manager.image.name }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
         livenessProbe:
           httpGet:

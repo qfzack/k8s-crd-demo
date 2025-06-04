@@ -15,6 +15,7 @@ namePrefix: redis-crd-
 #    someName: someValue
 
 resources:
+- ../cr
 - ../crd
 - ../rbac
 - ../manager

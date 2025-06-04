@@ -1,0 +1,33 @@
+apiVersion: databases.qfzack.com/v1
+kind: Redis
+metadata:
+  labels:
+    app.kubernetes.io/name: redis-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: redis
+spec:
+  version: 7.0.0
+  replicas: 1
+  mode: standalone
+  resource:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  # storage:
+  #   accessMode: ReadWriteOnce
+  #   storage: 100Mi
+  #   storageClassName: thin-csi
+  config:
+    ALLOW_EMPTY_PASSWORD: true
+    # REDIS_PASSWORD: "Password!"  # TODO set password with secrets
+  # monitor:
+  backup:
+    enabled: true
+    schedule: "0 0 * * *"
+    # retention: 7
+    # retentionPolicy:
+  security:
+    enableTLS: false

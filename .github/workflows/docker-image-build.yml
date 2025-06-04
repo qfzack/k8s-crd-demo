@@ -36,6 +36,7 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: zhangqf29/redis-manager:${{ github.ref_name }}
+        platforms: linux/amd64,linux/arm64
 
     - name: Build Docker for push
       if: startsWith(github.ref, 'refs/heads/')
@@ -45,3 +46,4 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: zhangqf29/redis-manager:test
+        platforms: linux/amd64,linux/arm64
