@@ -9,6 +9,7 @@ rules:
   - apps
   resources:
   - statefulsets
+  - deployments
   verbs:
   - create
   - delete
@@ -21,6 +22,7 @@ rules:
   - batch
   resources:
   - cronjobs
+  - jobs
   verbs:
   - create
   - delete

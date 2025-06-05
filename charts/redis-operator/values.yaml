@@ -11,7 +11,7 @@ controllerManager:
           - ALL
     image:
       name: zhangqf29/redis-manager
-      tag: 0.1.0
+      tag: test
     resources:
       limits:
         cpu: 500m
@@ -27,8 +27,8 @@ controllerManager:
 
 redis:
   version: 7.0.0
-  replicas: 1
-  mode: standalone
+  replicas: 3
+  mode: sentinel
   resource:
     requests:
       cpu: 100m
@@ -36,14 +36,13 @@ redis:
     limits:
       cpu: 200m
       memory: 256Mi
-  # storage:
-  #   accessMode: ReadWriteOnce
-  #   storage: 100Mi
-  #   storageClassName: thin-csi
+  storage:
+    accessMode: ReadWriteOnce
+    storage: 100Mi
+    storageClassName: thin-csi
   config:
     ALLOW_EMPTY_PASSWORD: "true"
-    # REDIS_PASSWORD: "Password!"  # TODO set password with secrets
-  # monitor:
+    # REDIS_PASSWORD: "Password!"
   backup:
     enabled: true
     schedule: "0 0 * * *"

@@ -27,51 +27,45 @@ Redis Operator is a Kubernetes operator built with [Kubebuilder](https://github.
 ### Prerequisites
 
 - Kubernetes >= 1.20
-- Helm >= 3.0 (optional)
 - Kubectl >= 1.20
+- Helm >= 3.0
 
 ### Installation
 
-#### Using Helm (Recommended)
-
 ```bash
-# Add Helm repository
 helm repo add redis-operator https://qfzack.github.io/redis-operator
-helm repo update
-
-# Install Redis Operator
-helm install redis-operator redis-operator/redis-operator
-```
-
-#### Option 2: Using kubectl
-
-```bash
-kubectl apply -k ./config/default
+helm install redis-operator redis-operator/redis-operator -n <namespace>
 ```
 
 ## Configuration
 
-### Redis CR Specification
+### Helm Chart Values Configuration
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `spec.mode` | Redis deployment mode (standalone/sentinel/cluster) | standalone |
-| `spec.version` | Redis version | 7.0.0 |
-| `spec.replicas` | Number of Redis nodes | 3 |
-| `spec.resource.requests.cpu` | CPU request quota | 100m |
-| `spec.resource.requests.memory` | Memory request quota | 128Mi |
-| `spec.resource.limits.cpu` | CPU limit quota | 200m |
-| `spec.resource.limits.memory` | Memory limit quota | 256Mi |
-| `spec.storage.accessMode` | Storage access mode | ReadWriteOnce |
-| `spec.storage.storage` | Storage size | 100Mi |
-| `spec.storage.storageClassName` | Storage class name | standard |
-| `spec.config.REDIS_PASSWORD` | Redis access password | - |
-| `spec.backup.enabled` | Enable backup | false |
-| `spec.backup.schedule` | Backup schedule (Cron expression) | 0 0 * * * |
-| `spec.backup.retention` | Backup retention days | 7 |
-| `spec.security.enableTLS` | Enable TLS | false |
+View all configurable parameters:
 
-For detailed configuration options, see the [Configuration Guide](docs/configuration.md).
+```bash
+helm repo add redis-operator https://qfzack.github.io/redis-operator
+helm show values redis-operator/redis-operator
+```
+
+And then you can customize the Redis Operator installation by modifying the chart values in several ways:
+
+1. Using `--set` parameters:
+
+```bash
+helm install redis-operator redis-operator/redis-operator \
+  --set redis.mode=sentinel \
+  --set redis.replicas=3 \
+  -n <namespace>
+```
+
+2. Using a custom values file refer to [values.yaml](./charts/redis-operator/values.yaml):
+
+```bash
+helm install redis-operator redis-operator/redis-operator \
+  -f values.yaml \
+  -n <namespace>
+```
 
 ## Documentation
 
@@ -96,32 +90,31 @@ For detailed configuration options, see the [Configuration Guide](docs/configura
 git clone https://github.com/qfzack/redis-operator.git
 cd redis-operator
 
-# Install dependencies
-make deps
+# Generate CRD configurations
+make manifests
 
-# Run tests
-make test
+# Install CRD to k8s cluster
+make install
+
+# Create custom resource
+kubectl apply -f ./config/samples/databases_v1_redis.yaml -n <namespace>
 
 # Run operator locally
 make run
 ```
 
-See [Developer Guide](docs/development.md) for detailed instructions.
+See [how to start](docs/how_to_start.md) for detailed instructions.
 
 ## Roadmap
 
 - [x] Basic Redis deployment support
 - [x] Sentinel mode support
 - [x] Cluster mode support
-- [x] Prometheus monitoring
+- [x] Automated scaling
+- [ ] Prometheus monitoring
 - [ ] Backup and restore
-- [ ] Automated scaling
 - [ ] Enhanced security features
 - [ ] Cross-cluster deployment
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests.
 
 ## Community
 

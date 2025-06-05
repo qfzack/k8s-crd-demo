@@ -15,7 +15,7 @@ spec:
     limits:
       cpu: {{ .Values.redis.resource.limits.cpu | default "200m" | quote }}
       memory: {{ .Values.redis.resource.limits.memory | default "256Mi" | quote }}
-  {{- if .Values.storage }}
+  {{- if .Values.redis.storage }}
   storage:
     accessMode: {{ .Values.redis.storage.accessMode | default "ReadWriteOnce" }}
     storage: {{ .Values.redis.storage.storage | default "100Mi" | quote  }}
@@ -32,8 +32,12 @@ spec:
   backup:
     enabled: {{ .Values.redis.backup.enabled }}
     schedule: {{ .Values.redis.backup.schedule }}
+    {{- if .Values.redis.backup.retention }}
     retention: {{ .Values.redis.backup.retention }}
-    retentionPolicy: {{ .Values.redis.backup.retentionPolicy }}
+    {{- end }}
+    {{- if .Values.redis.backup.retentionPolicy }}
+    retentionPolicy: {{ .Values.redis.backup.retentionPolicy | quote }}
+    {{- end }}
   {{- end }}
   security:
     enableTLS: {{ .Values.redis.security.enableTLS }}
