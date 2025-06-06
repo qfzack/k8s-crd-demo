@@ -39,5 +39,7 @@ spec:
     retentionPolicy: {{ .Values.redis.backup.retentionPolicy | quote }}
     {{- end }}
   {{- end }}
+  {{- if .Values.redis.security }}
   security:
     enableTLS: {{ .Values.redis.security.enableTLS }}
+  {{- end }}

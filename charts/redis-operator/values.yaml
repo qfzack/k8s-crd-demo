@@ -44,12 +44,12 @@ redis:
     ALLOW_EMPTY_PASSWORD: "true"
     # REDIS_PASSWORD: "Password!"
   backup:
-    enabled: true
-    schedule: "0 0 * * *"
+    enabled: false
+    # schedule: "0 0 * * *"
     # retention: 7
     # retentionPolicy:
-  security:
-    enableTLS: false
+  # security:
+  #   enableTLS: false
 
 kubernetesClusterDomain: cluster.local
 metricsService:

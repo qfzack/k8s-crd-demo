@@ -67,13 +67,6 @@ helm install redis-operator redis-operator/redis-operator \
   -n <namespace>
 ```
 
-## Documentation
-
-- [Architecture Overview](docs/architecture.md)
-- [User Guide](docs/user-guide.md)
-- [Developer Guide](docs/development.md)
-- [Troubleshooting](docs/troubleshooting.md)
-
 ## Development
 
 ### Requirements
@@ -108,12 +101,15 @@ See [how to start](docs/how_to_start.md) for detailed instructions.
 ## Roadmap
 
 - [x] Basic Redis deployment support
-- [x] Sentinel mode support
-- [x] Cluster mode support
-- [x] Automated scaling
-- [ ] Prometheus monitoring
-- [ ] Backup and restore
-- [ ] Enhanced security features
+- [x] Multiple Deployment Modes
+- [x] Persistent Storage Support
+- [x] Dynamic Scaling
+- [x] Automated Failover
+- [x] Helm Chart Deployment
+- [ ] Automated Backup and Restore
+- [ ] Enhanced security features (TLS, ServiceAccount)
+- [ ] Advanced alerting and event notifications
+- [ ] Multi-tenancy support
 - [ ] Cross-cluster deployment
 
 ## Community
